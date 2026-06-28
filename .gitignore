@@ -1,0 +1,65 @@
+# Go
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 本地工具状态
+.opencode/
+
+# 环境变量
+.env
+.env.*
+!.env.example
+
+# 依赖
+vendor/
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 数据库
+*.db
+*.sqlite
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+coverage/
+.cache/
+.vite/
+web/dist/
+web/dist-ssr/
+web/node_modules/
+web/coverage/
+web/.cache/
+web/.vite/
+web/.next/
+web/*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Air（热重载）
+tmp/
+temp/
