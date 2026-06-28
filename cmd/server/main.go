@@ -278,6 +278,11 @@ func main() {
 }
 
 func serveWebUI(r chi.Router) {
+	if !serveWebEnabled() {
+		log.Println("Web UI static serving disabled by SERVE_WEB")
+		return
+	}
+
 	staticDir := resolveWebDistDir()
 	if staticDir == "" {
 		log.Println("Web dist directory not found, Web UI static serving disabled")
@@ -308,6 +313,14 @@ func serveWebUI(r chi.Router) {
 		req.URL.Path = "/index.html"
 		fileServer.ServeHTTP(w, req)
 	})
+}
+
+func serveWebEnabled() bool {
+	value := strings.TrimSpace(strings.ToLower(os.Getenv("SERVE_WEB")))
+	if value == "" {
+		return true
+	}
+	return value != "false" && value != "0" && value != "no" && value != "off"
 }
 
 func resolveWebDistDir() string {
