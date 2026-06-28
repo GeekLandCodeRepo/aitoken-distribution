@@ -33,6 +33,7 @@ type RequestCompletedEvent struct {
 	PromptTokens     int       `json:"prompt_tokens"`
 	CompletionTokens int       `json:"completion_tokens"`
 	TotalTokens      int       `json:"total_tokens"`
+	ReasoningTokens  int       `json:"reasoning_tokens"`
 	Cost             int64     `json:"cost"`
 	CacheHit         bool      `json:"cache_hit"`
 	CacheTokens      int       `json:"cache_tokens"`
@@ -214,6 +215,7 @@ func (e RequestCompletedEvent) RequestLog() *billingDomain.RequestLog {
 		PromptTokens:     e.PromptTokens,
 		CompletionTokens: e.CompletionTokens,
 		TotalTokens:      e.TotalTokens,
+		ReasoningTokens:  e.ReasoningTokens,
 		Cost:             e.Cost,
 		CacheHit:         e.CacheHit,
 		CacheTokens:      e.CacheTokens,

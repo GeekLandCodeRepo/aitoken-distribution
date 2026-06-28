@@ -230,6 +230,7 @@ func applySchemaComments(db *xorm.Engine) error {
 			"prompt_tokens":     "输入token数",
 			"completion_tokens": "输出token数",
 			"total_tokens":      "总token数",
+			"reasoning_tokens":  "思考token数",
 			"cost":              "请求费用，内部额度单位",
 			"cache_hit":         "是否命中缓存",
 			"cache_tokens":      "缓存命中输入token数",

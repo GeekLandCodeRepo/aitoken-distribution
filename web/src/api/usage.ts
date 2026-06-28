@@ -65,6 +65,7 @@ export interface RequestLog {
   prompt_tokens: number
   completion_tokens: number
   total_tokens: number
+  reasoning_tokens: number
   cost: number
   cache_hit: boolean
   cache_tokens: number

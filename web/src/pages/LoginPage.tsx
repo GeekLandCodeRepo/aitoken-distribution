@@ -17,13 +17,16 @@ export default function LoginPage() {
   const [inviteCode, setInviteCode] = useState('')
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [loading, setLoading] = useState(false)
+  const accessToken = useAuthStore((state) => state.accessToken)
   const setTokens = useAuthStore((state) => state.setTokens)
   const clearTokens = useAuthStore((state) => state.clearTokens)
   const navigate = useNavigate()
 
   useEffect(() => {
-    clearTokens()
-  }, [clearTokens])
+    if (accessToken) {
+      navigate('/dashboard')
+    }
+  }, [accessToken, navigate])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

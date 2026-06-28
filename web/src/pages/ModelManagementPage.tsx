@@ -50,6 +50,9 @@ export function ModelManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingModelId, setEditingModelId] = useState<string | null>(null)
   const [updatingModelIds, setUpdatingModelIds] = useState<Set<string>>(new Set())
+  const [filterChannelId, setFilterChannelId] = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [searchKeyword, setSearchKeyword] = useState('')
   const [newModel, setNewModel] = useState<CreateManagedModelRequest>({
     channel_id: '',
     model_name: '',
@@ -67,10 +70,21 @@ export function ModelManagementPage() {
     fetchChannels()
   }, [])
 
-  const fetchModels = async () => {
+  useEffect(() => {
+    fetchModels()
+  }, [filterChannelId, filterStatus])
+
+  const fetchModels = async (override?: { channelId?: string; status?: string; search?: string }) => {
     setLoading(true)
     try {
-      const data = await adminModelApi.list()
+      const channelId = override?.channelId ?? filterChannelId
+      const status = override?.status ?? filterStatus
+      const keyword = (override?.search ?? searchKeyword).trim()
+      const data = await adminModelApi.list({
+        channel_id: channelId === 'all' ? undefined : channelId,
+        enabled: status === 'all' ? undefined : status === 'enabled',
+        search: keyword || undefined,
+      })
       setModels(data || [])
     } catch (err) {
       console.error('Failed to fetch models:', err)
@@ -181,6 +195,17 @@ export function ModelManagementPage() {
     if (unit >= 1000000) return `${unit / 1000000}M`
     if (unit >= 1000) return `${unit / 1000}K`
     return String(unit)
+  }
+
+  const handleSearch = () => {
+    fetchModels()
+  }
+
+  const handleResetFilters = () => {
+    setFilterChannelId('all')
+    setFilterStatus('all')
+    setSearchKeyword('')
+    fetchModels({ channelId: 'all', status: 'all', search: '' })
   }
 
   return (
@@ -313,8 +338,41 @@ export function ModelManagementPage() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-4">
           <CardTitle>{t('modelManagement.title')}</CardTitle>
+          <div className="grid gap-3 md:grid-cols-[220px_160px_1fr_auto_auto]">
+            <Select value={filterChannelId} onValueChange={setFilterChannelId}>
+              <SelectTrigger>
+                <SelectValue placeholder={t('modelManagement.channelPlaceholder')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('modelManagement.allChannels')}</SelectItem>
+                {channels.map((ch) => (
+                  <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder={t('common.status')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('modelManagement.allStatuses')}</SelectItem>
+                <SelectItem value="enabled">{t('common.active')}</SelectItem>
+                <SelectItem value="disabled">{t('common.disabled')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSearch()
+              }}
+              placeholder={t('modelManagement.searchPlaceholder')}
+            />
+            <Button variant="outline" onClick={handleResetFilters}>{t('common.reset')}</Button>
+            <Button onClick={handleSearch}>{t('common.search')}</Button>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (

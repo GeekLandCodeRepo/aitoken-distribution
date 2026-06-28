@@ -122,8 +122,10 @@ CREATE TABLE request_logs (
     prompt_tokens   INT DEFAULT 0,
     completion_tokens INT DEFAULT 0,
     total_tokens    INT DEFAULT 0,
+    reasoning_tokens INT DEFAULT 0,
     cost            BIGINT DEFAULT 0,            -- 花费（内部单位）
     cache_hit       BOOLEAN DEFAULT FALSE,
+    cache_tokens    INT DEFAULT 0,
     status_code     SMALLINT,
     is_stream       BOOLEAN DEFAULT FALSE,
     latency_ms      INT DEFAULT 0,

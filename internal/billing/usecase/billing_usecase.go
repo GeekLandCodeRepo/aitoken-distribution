@@ -67,6 +67,7 @@ type PostConsumeParams struct {
 	Model            string
 	PromptTokens     int
 	CompletionTokens int
+	ReasoningTokens  int
 	CacheHit         bool
 	CacheTokens      int
 	StatusCode       int

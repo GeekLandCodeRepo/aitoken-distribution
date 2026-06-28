@@ -63,6 +63,7 @@ type Usage struct {
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
 	CacheTokens      int `json:"cache_tokens,omitempty"`
+	ReasoningTokens  int `json:"reasoning_tokens,omitempty"`
 }
 
 // StreamChunk is an OpenAI-compatible chat completion stream chunk.

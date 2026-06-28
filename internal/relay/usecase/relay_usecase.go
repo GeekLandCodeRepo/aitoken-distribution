@@ -253,6 +253,7 @@ func (uc *RelayUsecase) handleStreamResponse(
 			promptTokens := estimateTokens(req.Request.Messages)
 			completionTokens := 0
 			cacheTokens := 0
+			reasoningTokens := 0
 			contentProduced := false
 			watchdogTimeout := relayTTFTTimeout()
 			firstMeaningful := make(chan struct{})
@@ -268,10 +269,11 @@ func (uc *RelayUsecase) handleStreamResponse(
 					if meaningful {
 						stopTTFTWatchdog(firstMeaningful, &firstMeaningfulOnce)
 						usage := extractOpenAIUsage([]byte(strings.TrimSpace(strings.TrimPrefix(trimmed, "data:"))))
-						if usage.PromptTokens > 0 || usage.CompletionTokens > 0 || usage.TotalTokens > 0 {
+						if usage.PromptTokens > 0 || usage.CompletionTokens > 0 || usage.TotalTokens > 0 || usage.CacheTokens > 0 || usage.ReasoningTokens > 0 {
 							promptTokens = usage.PromptTokens
 							completionTokens = usage.CompletionTokens
 							cacheTokens = usage.CacheTokens
+							reasoningTokens = usage.ReasoningTokens
 						} else {
 							completionTokens++
 						}
@@ -307,6 +309,7 @@ func (uc *RelayUsecase) handleStreamResponse(
 				Model:            req.Request.Model,
 				PromptTokens:     promptTokens,
 				CompletionTokens: completionTokens,
+				ReasoningTokens:  reasoningTokens,
 				CacheHit:         cacheTokens > 0,
 				CacheTokens:      cacheTokens,
 				StatusCode:       httpResp.StatusCode,
@@ -440,6 +443,7 @@ func (uc *RelayUsecase) handleNonStreamResponse(
 			Model:            req.Request.Model,
 			PromptTokens:     usage.PromptTokens,
 			CompletionTokens: usage.CompletionTokens,
+			ReasoningTokens:  usage.ReasoningTokens,
 			CacheHit:         usage.CacheTokens > 0,
 			CacheTokens:      usage.CacheTokens,
 			StatusCode:       httpResp.StatusCode,
@@ -489,6 +493,7 @@ func (uc *RelayUsecase) handleNonStreamResponse(
 		Model:            req.Request.Model,
 		PromptTokens:     resp.Usage.PromptTokens,
 		CompletionTokens: resp.Usage.CompletionTokens,
+		ReasoningTokens:  resp.Usage.ReasoningTokens,
 		StatusCode:       httpResp.StatusCode,
 		IsStream:         false,
 		FirstByteMs:      latency,
@@ -555,6 +560,7 @@ func (uc *RelayUsecase) postConsumeAndRecord(ctx context.Context, channelID stri
 		PromptTokens:     params.PromptTokens,
 		CompletionTokens: params.CompletionTokens,
 		TotalTokens:      params.PromptTokens + params.CompletionTokens,
+		ReasoningTokens:  params.ReasoningTokens,
 		Cost:             actualCost,
 		CacheHit:         params.CacheHit,
 		CacheTokens:      params.CacheTokens,
@@ -668,6 +674,9 @@ func extractOpenAIUsage(body []byte) adaptor.Usage {
 			PromptDetails    struct {
 				CachedTokens int `json:"cached_tokens"`
 			} `json:"prompt_tokens_details"`
+			CompletionDetails struct {
+				ReasoningTokens int `json:"reasoning_tokens"`
+			} `json:"completion_tokens_details"`
 			PromptCacheHitTokens int `json:"prompt_cache_hit_tokens"`
 		} `json:"usage"`
 	}
@@ -681,6 +690,7 @@ func extractOpenAIUsage(body []byte) adaptor.Usage {
 		CompletionTokens: resp.Usage.CompletionTokens,
 		TotalTokens:      resp.Usage.TotalTokens,
 		CacheTokens:      cacheTokens,
+		ReasoningTokens:  resp.Usage.CompletionDetails.ReasoningTokens,
 	}
 }
 

@@ -14,6 +14,7 @@ type RequestLog struct {
 	PromptTokens     int       `json:"prompt_tokens" xorm:"int default(0)"`
 	CompletionTokens int       `json:"completion_tokens" xorm:"int default(0)"`
 	TotalTokens      int       `json:"total_tokens" xorm:"int default(0)"`
+	ReasoningTokens  int       `json:"reasoning_tokens" xorm:"int default(0)"`
 	Cost             int64     `json:"cost" xorm:"bigint default(0)"`
 	CacheHit         bool      `json:"cache_hit" xorm:"bool default(false)"`
 	CacheTokens      int       `json:"cache_tokens" xorm:"int default(0)"`

@@ -172,9 +172,8 @@ export function LogsPage() {
                     <TableHead className="sticky top-0 z-20 min-w-[120px] bg-muted">IP</TableHead>
                     <TableHead className="sticky top-0 z-20 min-w-[170px] bg-muted">{t('logs.endpoint')}</TableHead>
                     <TableHead className="sticky top-0 z-20 min-w-[130px] bg-muted">{t('logs.type')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[210px] bg-muted text-right">TOKEN</TableHead>
+                    <TableHead className="sticky top-0 z-20 min-w-[260px] bg-muted text-right">TOKEN</TableHead>
                     <TableHead className="sticky top-0 z-20 min-w-[120px] bg-muted text-right">{t('logs.cost')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[110px] bg-muted text-right">{t('logs.cacheRead')}</TableHead>
                     <TableHead className="sticky top-0 z-20 min-w-[95px] bg-muted text-right">{t('logs.firstByte')}</TableHead>
                     <TableHead className="sticky top-0 z-20 min-w-[85px] bg-muted text-right">{t('logs.totalTime')}</TableHead>
                     <TableHead className="sticky top-0 z-20 min-w-[120px] bg-muted text-right">{t('logs.time')}</TableHead>
@@ -183,13 +182,13 @@ export function LogsPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="h-24 text-center text-muted-foreground">
+                      <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
                         {t('common.loading')}
                       </TableCell>
                     </TableRow>
                   ) : visibleLogs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="h-24 text-center text-muted-foreground">
+                      <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
                         {t('common.noData')}
                       </TableCell>
                     </TableRow>
@@ -278,12 +277,20 @@ function LogRow({ log }: { log: RequestLog }) {
         <span className="text-blue-600">↓{formatNumber(log.prompt_tokens)}</span>
         <span className="mx-1 text-muted-foreground">|</span>
         <span className="text-emerald-600">↑{formatNumber(log.completion_tokens)}</span>
-        {log.cache_tokens > 0 && <span className="ml-2 text-orange-500">♺{formatNumber(log.cache_tokens)}</span>}
+        {log.reasoning_tokens > 0 && (
+          <>
+            <span className="mx-1 text-muted-foreground">|</span>
+            <span className="text-violet-500">🧠{formatNumber(log.reasoning_tokens)}</span>
+          </>
+        )}
+        {log.cache_tokens > 0 && (
+          <>
+            <span className="mx-1 text-muted-foreground">|</span>
+            <span className="text-orange-500">♺{formatNumber(log.cache_tokens)}</span>
+          </>
+        )}
       </TableCell>
       <TableCell className="text-right font-mono font-semibold text-emerald-600">${(log.cost / 1000000).toFixed(6)}</TableCell>
-      <TableCell className="text-right">
-        <Badge className="bg-indigo-100 font-mono text-indigo-700 hover:bg-indigo-100">{formatNumber(log.cache_tokens)}</Badge>
-      </TableCell>
       <TableCell className={cn('text-right font-mono', durationClass(firstByte))}>{firstByte > 0 ? `${formatSeconds(firstByte)}s` : '-'}</TableCell>
       <TableCell className={cn('text-right font-mono', durationClass(totalTime))}>{formatSeconds(totalTime)}s</TableCell>
       <TableCell className="text-right font-mono text-[11px] text-muted-foreground">
