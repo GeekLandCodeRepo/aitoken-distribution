@@ -421,22 +421,28 @@ func seedExampleChannels(db *xorm.Engine, cfg *config.Config) error {
 		}
 	}
 
-	if err := seedModel(db, channel.ID, "deepseek-v4-flash", 0.14000000, 0.00280000, 0.28000000); err != nil {
+	modelEnabled := channel.Status == 1
+	if err := seedModel(db, channel.ID, "deepseek-v4-flash", 0.14000000, 0.00280000, 0.28000000, modelEnabled); err != nil {
 		return err
 	}
-	if err := seedModel(db, channel.ID, "deepseek-v4-pro", 0.43500000, 0.00362500, 0.87000000); err != nil {
+	if err := seedModel(db, channel.ID, "deepseek-v4-pro", 0.43500000, 0.00362500, 0.87000000, modelEnabled); err != nil {
 		return err
 	}
 	return nil
 }
 
-func seedModel(db *xorm.Engine, channelID string, modelName string, promptPrice float64, cachedPromptPrice float64, completionPrice float64) error {
+func seedModel(db *xorm.Engine, channelID string, modelName string, promptPrice float64, cachedPromptPrice float64, completionPrice float64, enabled bool) error {
 	var existing modelDomain.Model
 	has, err := db.Where("channel_id = ? AND model_name = ?", channelID, modelName).Get(&existing)
 	if err != nil {
 		return fmt.Errorf("check example model %s: %w", modelName, err)
 	}
 	if has {
+		if !enabled && existing.Enabled {
+			if _, err := db.ID(existing.ID).Cols("enabled", "updated_at").Update(&modelDomain.Model{Enabled: false, UpdatedAt: time.Now()}); err != nil {
+				return fmt.Errorf("disable example model %s: %w", modelName, err)
+			}
+		}
 		return nil
 	}
 
@@ -451,7 +457,7 @@ func seedModel(db *xorm.Engine, channelID string, modelName string, promptPrice 
 		CompletionPrice:   completionPrice,
 		CompletionUnit:    1000000,
 		Currency:          "USD",
-		Enabled:           true,
+		Enabled:           enabled,
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}

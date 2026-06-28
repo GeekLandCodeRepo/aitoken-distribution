@@ -31,6 +31,7 @@ type ModelRepository interface {
 	GetByChannelAndModel(channelID string, modelName string) (*Model, error)
 	Update(model *Model) error
 	UpdateEnabled(id string, enabled bool) error
+	UpdateEnabledByChannel(channelID string, enabled bool) error
 	Delete(id string) error
 	DeleteByChannelAndModel(channelID string, modelName string) error
 	DeleteByChannel(channelID string) error

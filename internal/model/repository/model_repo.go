@@ -116,6 +116,17 @@ func (r *modelRepository) UpdateEnabled(id string, enabled bool) error {
 	return nil
 }
 
+func (r *modelRepository) UpdateEnabledByChannel(channelID string, enabled bool) error {
+	_, err := r.db.Table("models").Where("channel_id = ?", channelID).Update(map[string]interface{}{
+		"enabled":    enabled,
+		"updated_at": time.Now(),
+	})
+	if err == nil {
+		invalidateModelCache(channelID, "")
+	}
+	return err
+}
+
 func (r *modelRepository) Delete(id string) error {
 	model, _ := r.GetByID(id)
 	_, err := r.db.ID(id).Delete(&domain.Model{})

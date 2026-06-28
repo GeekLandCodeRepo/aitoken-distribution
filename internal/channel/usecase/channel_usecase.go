@@ -240,6 +240,9 @@ func (uc *ChannelUsecase) UpdateChannel(id string, req CreateChannelRequest) (*d
 	if err := uc.channelRepo.Update(channel); err != nil {
 		return nil, errcode.ErrDatabase
 	}
+	if err := uc.modelRepo.UpdateEnabledByChannel(channel.ID, channel.Status == 1); err != nil {
+		return nil, errcode.ErrDatabase
+	}
 	return channel, nil
 }
 
