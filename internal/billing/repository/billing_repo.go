@@ -62,6 +62,14 @@ func (r *requestLogRepository) Create(log *domain.RequestLog) error {
 	return err
 }
 
+func (r *requestLogRepository) CreateBatch(logs []*domain.RequestLog) error {
+	if len(logs) == 0 {
+		return nil
+	}
+	_, err := r.db.Insert(logs)
+	return err
+}
+
 func (r *requestLogRepository) GetByID(id string) (*domain.RequestLog, error) {
 	log := &domain.RequestLog{}
 	has, err := r.db.ID(id).Get(log)

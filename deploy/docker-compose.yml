@@ -1,0 +1,98 @@
+services:
+  postgres:
+    image: docker.io/pgvector/pgvector:pg18-trixie
+    container_name: stone-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:-aitsd}
+      PGDATA: /var/lib/postgresql/data
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    ports:
+      - "0.0.0.0:${POSTGRES_PORT:-45432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - stone-net
+
+  valkey:
+    image: docker.io/valkey/valkey:8-alpine
+    container_name: stone-valkey
+    command:
+      - valkey-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - --user
+      - ${REDIS_USERNAME:-hdward}
+      - "on"
+      - ">${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      - "~*"
+      - "+@all"
+      - --user
+      - default
+      - "off"
+      - --appendonly
+      - "yes"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      REDIS_USERNAME: ${REDIS_USERNAME:-hdward}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - valkeydata:/data
+    ports:
+      - "0.0.0.0:${REDIS_PORT_PUBLISHED:-46379}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli --user $${REDIS_USERNAME:-hdward} -a $${REDIS_PASSWORD} ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - stone-net
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: aitsd-app
+    env_file: ../.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_NAME: ${DB_NAME:-aitsd}
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_USERNAME: ${REDIS_USERNAME:-hdward}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      RUN_MIGRATE_ON_START: ${RUN_MIGRATE_ON_START:-true}
+      FORCE_MIGRATE: ${FORCE_MIGRATE:-false}
+      MIGRATION_MARKER: /srv/data/.migrated
+    ports:
+      - "0.0.0.0:${PORT:-40680}:${PORT:-40680}"
+    volumes:
+      - appdata:/srv/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - stone-net
+
+volumes:
+  pgdata:
+  valkeydata:
+  appdata:
+
+networks:
+  stone-net:
+    name: stone-net

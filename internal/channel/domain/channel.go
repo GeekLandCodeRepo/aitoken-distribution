@@ -40,4 +40,5 @@ type ChannelRepository interface {
 	GetActiveByModel(model string) ([]*Channel, error)
 	GetActiveByModelForUser(model string, userID string) ([]*Channel, error)
 	UpdateStats(id string, success bool, quota int64) error
+	UpdateStatsBatch(id string, requestCount int64, successCount int64, quota int64) error
 }

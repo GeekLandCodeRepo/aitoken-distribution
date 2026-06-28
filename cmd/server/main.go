@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -36,6 +39,7 @@ import (
 	"llm-gateway/internal/shared/config"
 	"llm-gateway/internal/shared/crypto"
 	"llm-gateway/internal/shared/database"
+	"llm-gateway/internal/shared/event"
 	"llm-gateway/internal/shared/jwt"
 	"llm-gateway/internal/shared/middleware"
 	"llm-gateway/internal/shared/redis"
@@ -118,10 +122,12 @@ func main() {
 
 	// Relay module
 	channel_selector := relay.NewChannelSelector(rdb)
+	event_publisher := event.NewPublisher(rdb)
 	relay_usecase_instance := relay_usecase.NewRelayUsecase(
 		channel_selector,
 		billing_usecase_instance,
 		channel_repository,
+		event_publisher,
 	)
 	relay_handler := relay_handler.NewRelayHandler(relay_usecase_instance, pricing_repository, channel_repository)
 
@@ -254,6 +260,8 @@ func main() {
 		w.Write([]byte("ok"))
 	})
 
+	serveWebUI(r)
+
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("Server starting on %s", addr)
 
@@ -267,4 +275,53 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
+}
+
+func serveWebUI(r chi.Router) {
+	staticDir := resolveWebDistDir()
+	if staticDir == "" {
+		log.Println("Web dist directory not found, Web UI static serving disabled")
+		return
+	}
+	log.Printf("Serving Web UI from %s", staticDir)
+
+	fileServer := http.FileServer(http.Dir(staticDir))
+	r.Get("/*", func(w http.ResponseWriter, req *http.Request) {
+		cleanPath := filepath.Clean("/" + req.URL.Path)
+		relPath := strings.TrimPrefix(cleanPath, "/")
+		if relPath == "" || relPath == "." {
+			relPath = "index.html"
+		}
+
+		target := filepath.Join(staticDir, relPath)
+		if info, err := os.Stat(target); err == nil && !info.IsDir() {
+			req.URL.Path = "/" + relPath
+			fileServer.ServeHTTP(w, req)
+			return
+		}
+
+		if filepath.Ext(relPath) != "" {
+			http.NotFound(w, req)
+			return
+		}
+
+		req.URL.Path = "/index.html"
+		fileServer.ServeHTTP(w, req)
+	})
+}
+
+func resolveWebDistDir() string {
+	candidates := []string{
+		os.Getenv("WEB_DIST_DIR"),
+		"web/dist",
+	}
+	for _, dir := range candidates {
+		if dir == "" {
+			continue
+		}
+		if info, err := os.Stat(filepath.Join(dir, "index.html")); err == nil && !info.IsDir() {
+			return dir
+		}
+	}
+	return ""
 }

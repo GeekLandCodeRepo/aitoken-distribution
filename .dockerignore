@@ -1,0 +1,12 @@
+.env
+.env.*
+.git
+.opencode
+bin/
+web/dist/
+web/node_modules/
+logs/
+cache/
+tmp/
+temp/
+*.log

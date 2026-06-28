@@ -41,6 +41,13 @@ func NewBillingUsecase(
 	}
 }
 
+func (uc *BillingUsecase) RequestLogRepository() domain.RequestLogRepository {
+	if uc == nil {
+		return nil
+	}
+	return uc.logRepo
+}
+
 type PreConsumeParams struct {
 	UserID       string
 	KeyID        string
@@ -179,35 +186,9 @@ func (uc *BillingUsecase) finalize(ctx context.Context, params PostConsumeParams
 	}
 	if actualCost > 0 && params.KeyID != "" {
 		if err := uc.keyRepo.UpdateUsedQuota(params.KeyID, actualCost); err != nil {
-			return 0, err
+			return actualCost, err
 		}
 	}
-
-	// 记录请求日志
-	log := &domain.RequestLog{
-		ID:               params.RequestID,
-		UserID:           params.UserID,
-		APIKeyID:         params.KeyID,
-		ChannelID:        params.ChannelID,
-		Endpoint:         params.Endpoint,
-		Model:            params.Model,
-		PromptTokens:     params.PromptTokens,
-		CompletionTokens: params.CompletionTokens,
-		TotalTokens:      params.PromptTokens + params.CompletionTokens,
-		Cost:             actualCost,
-		CacheHit:         params.CacheHit,
-		CacheTokens:      params.CacheTokens,
-		StatusCode:       params.StatusCode,
-		IsStream:         params.IsStream,
-		FirstByteMs:      params.FirstByteMs,
-		LatencyMs:        params.LatencyMs,
-		ErrorMessage:     params.ErrorMessage,
-		RequestID:        params.RequestID,
-		IPAddress:        params.IPAddress,
-		CreatedAt:        time.Now(),
-	}
-
-	go uc.logRepo.Create(log)
 
 	// 记录交易
 	tx := &domain.Transaction{
@@ -221,7 +202,9 @@ func (uc *BillingUsecase) finalize(ctx context.Context, params PostConsumeParams
 		CreatedAt:     time.Now(),
 	}
 
-	go uc.txRepo.Create(tx)
+	if err := uc.txRepo.Create(tx); err != nil {
+		return actualCost, err
+	}
 
 	return actualCost, nil
 }
@@ -245,7 +228,9 @@ func (uc *BillingUsecase) Refund(ctx context.Context, userID string, amount int6
 		CreatedAt:   time.Now(),
 	}
 
-	go uc.txRepo.Create(tx)
+	if err := uc.txRepo.Create(tx); err != nil {
+		return err
+	}
 
 	return nil
 }

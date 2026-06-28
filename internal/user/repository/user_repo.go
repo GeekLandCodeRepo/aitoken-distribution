@@ -1,12 +1,14 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"xorm.io/xorm"
 
+	"llm-gateway/internal/shared/cache"
 	"llm-gateway/internal/shared/uuid"
 	"llm-gateway/internal/user/domain"
 )
@@ -345,7 +347,11 @@ func (r *userRepository) ReplaceUserChannels(userID string, channelIDs []string)
 			return err
 		}
 	}
-	return session.Commit()
+	if err := session.Commit(); err != nil {
+		return err
+	}
+	cache.DeletePattern(context.Background(), fmt.Sprintf("channel_candidates:%s:*", userID))
+	return nil
 }
 
 func replaceUserChannelsWithSession(session *xorm.Session, userID string, channelIDs []string) error {
@@ -492,6 +498,7 @@ func (r *userRepository) ApplyDefaultChannelsToAllUsers() (int64, error) {
 	if err := session.Commit(); err != nil {
 		return 0, err
 	}
+	cache.DeletePattern(context.Background(), "channel_candidates:*")
 	return int64(len(users)), nil
 }
 

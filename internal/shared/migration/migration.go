@@ -367,7 +367,7 @@ func copyLegacyColumn(db *xorm.Engine, table string, legacyColumn string, target
 
 func seedExampleChannels(db *xorm.Engine, cfg *config.Config) error {
 	const channelName = "DeepSeek官方"
-	const placeholderAPIKey = "sk-replace-with-your-deepseek-api-key"
+	const placeholderAPIKey = "replace-with-your-deepseek-api-key"
 
 	modelsJSON := `["deepseek-v4-flash","deepseek-v4-pro"]`
 	groupsJSON := `["default"]`

@@ -55,6 +55,7 @@ func (RequestLog) TableName() string {
 
 type RequestLogRepository interface {
 	Create(log *RequestLog) error
+	CreateBatch(logs []*RequestLog) error
 	GetByID(id string) (*RequestLog, error)
 	ListByUserID(userID string, page, size int, model string) ([]*RequestLog, int64, error)
 	ListAll(page, size int, model string) ([]*RequestLog, int64, error)

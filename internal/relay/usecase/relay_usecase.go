@@ -25,6 +25,7 @@ import (
 	"llm-gateway/internal/shared/config"
 	"llm-gateway/internal/shared/crypto"
 	"llm-gateway/internal/shared/errcode"
+	"llm-gateway/internal/shared/event"
 )
 
 // RelayUsecase 代理引擎核心
@@ -33,6 +34,7 @@ type RelayUsecase struct {
 	billingUsecase  *billingUsecase.BillingUsecase
 	channelRepo     channelDomain.ChannelRepository
 	keyCrypto       *crypto.ChaCha20Poly1305Crypto
+	eventPublisher  *event.Publisher
 	httpClient      *http.Client
 	httpTransport   *http.Transport
 }
@@ -42,6 +44,7 @@ func NewRelayUsecase(
 	channelSelector *relay.ChannelSelector,
 	billingUsecase *billingUsecase.BillingUsecase,
 	channelRepo channelDomain.ChannelRepository,
+	eventPublisher *event.Publisher,
 ) *RelayUsecase {
 	cfg := config.Load()
 	transport := newRelayHTTPTransport()
@@ -50,6 +53,7 @@ func NewRelayUsecase(
 		billingUsecase:  billingUsecase,
 		channelRepo:     channelRepo,
 		keyCrypto:       crypto.NewChaCha20Poly1305Crypto(cfg.ChaCha20Poly1305Key),
+		eventPublisher:  eventPublisher,
 		httpClient:      &http.Client{Transport: transport},
 		httpTransport:   transport,
 	}
@@ -186,7 +190,7 @@ func (uc *RelayUsecase) ChatCompletion(ctx context.Context, req *RelayRequest) (
 			upstreamCancel()
 		}
 		uc.billingUsecase.Refund(ctx, req.UserID, preConsumed)
-		uc.recordChannelStats(channel.ID, false, 0)
+		uc.publishOrRecord(ctx, event.RequestCompletedEvent{RequestID: uuid.NewV7String(), UserID: req.UserID, APIKeyID: req.KeyID, ChannelID: channel.ID, Endpoint: "/v1/chat/completions", Model: req.Request.Model, StatusCode: 504, IsStream: req.Request.Stream, ErrorMessage: err.Error(), IPAddress: req.IPAddress, ChannelSuccess: false, CreatedAt: time.Now()})
 		return nil, errcode.ErrUpstreamTimeout
 	}
 	latency := int(time.Since(startTime).Milliseconds())
@@ -197,7 +201,7 @@ func (uc *RelayUsecase) ChatCompletion(ctx context.Context, req *RelayRequest) (
 		defer httpResp.Body.Close()
 		body, _ := io.ReadAll(httpResp.Body)
 		uc.billingUsecase.Refund(ctx, req.UserID, preConsumed)
-		uc.recordChannelStats(channel.ID, false, 0)
+		uc.publishOrRecord(ctx, event.RequestCompletedEvent{RequestID: uuid.NewV7String(), UserID: req.UserID, APIKeyID: req.KeyID, ChannelID: channel.ID, Endpoint: "/v1/chat/completions", Model: req.Request.Model, StatusCode: httpResp.StatusCode, IsStream: req.Request.Stream, FirstByteMs: latency, LatencyMs: latency, ErrorMessage: string(body), IPAddress: req.IPAddress, ChannelSuccess: false, CreatedAt: time.Now()})
 		return &RelayResponse{
 			StatusCode: httpResp.StatusCode,
 			Body:       bytes.NewReader(normalizeErrorBody(body)),
@@ -282,12 +286,12 @@ func (uc *RelayUsecase) handleStreamResponse(
 				if err != nil {
 					if !contentProduced && watchdogTimedOut() {
 						uc.billingUsecase.Refund(ctx, req.UserID, preConsumed)
-						uc.recordChannelStats(channel.ID, false, 0)
+						uc.publishOrRecord(ctx, event.RequestCompletedEvent{RequestID: uuid.NewV7String(), UserID: req.UserID, APIKeyID: req.KeyID, ChannelID: channel.ID, Endpoint: "/v1/chat/completions", Model: req.Request.Model, StatusCode: httpResp.StatusCode, IsStream: true, FirstByteMs: latency, LatencyMs: latency, ErrorMessage: "stream timeout", IPAddress: req.IPAddress, ChannelSuccess: false, CreatedAt: time.Now()})
 						return
 					}
 					if err != io.EOF && !contentProduced {
 						uc.billingUsecase.Refund(ctx, req.UserID, preConsumed)
-						uc.recordChannelStats(channel.ID, false, 0)
+						uc.publishOrRecord(ctx, event.RequestCompletedEvent{RequestID: uuid.NewV7String(), UserID: req.UserID, APIKeyID: req.KeyID, ChannelID: channel.ID, Endpoint: "/v1/chat/completions", Model: req.Request.Model, StatusCode: httpResp.StatusCode, IsStream: true, FirstByteMs: latency, LatencyMs: latency, ErrorMessage: err.Error(), IPAddress: req.IPAddress, ChannelSuccess: false, CreatedAt: time.Now()})
 						return
 					}
 					break
@@ -338,12 +342,12 @@ func (uc *RelayUsecase) handleStreamResponse(
 			if err != nil {
 				if !contentProduced && watchdogTimedOut() {
 					uc.billingUsecase.Refund(ctx, req.UserID, preConsumed)
-					uc.recordChannelStats(channel.ID, false, 0)
+					uc.publishOrRecord(ctx, event.RequestCompletedEvent{RequestID: uuid.NewV7String(), UserID: req.UserID, APIKeyID: req.KeyID, ChannelID: channel.ID, Endpoint: "/v1/chat/completions", Model: req.Request.Model, StatusCode: httpResp.StatusCode, IsStream: true, FirstByteMs: latency, LatencyMs: latency, ErrorMessage: "stream timeout", IPAddress: req.IPAddress, ChannelSuccess: false, CreatedAt: time.Now()})
 					return
 				}
 				if err != io.EOF && !contentProduced {
 					uc.billingUsecase.Refund(ctx, req.UserID, preConsumed)
-					uc.recordChannelStats(channel.ID, false, 0)
+					uc.publishOrRecord(ctx, event.RequestCompletedEvent{RequestID: uuid.NewV7String(), UserID: req.UserID, APIKeyID: req.KeyID, ChannelID: channel.ID, Endpoint: "/v1/chat/completions", Model: req.Request.Model, StatusCode: httpResp.StatusCode, IsStream: true, FirstByteMs: latency, LatencyMs: latency, ErrorMessage: err.Error(), IPAddress: req.IPAddress, ChannelSuccess: false, CreatedAt: time.Now()})
 					return
 				}
 				break
@@ -421,7 +425,7 @@ func (uc *RelayUsecase) handleNonStreamResponse(
 	body, err := io.ReadAll(httpResp.Body)
 	if err != nil {
 		uc.billingUsecase.Refund(ctx, req.UserID, preConsumed)
-		uc.recordChannelStats(channel.ID, false, 0)
+		uc.publishOrRecord(ctx, event.RequestCompletedEvent{RequestID: uuid.NewV7String(), UserID: req.UserID, APIKeyID: req.KeyID, ChannelID: channel.ID, Endpoint: "/v1/chat/completions", Model: req.Request.Model, StatusCode: 502, IsStream: false, FirstByteMs: latency, LatencyMs: latency, ErrorMessage: err.Error(), IPAddress: req.IPAddress, ChannelSuccess: false, CreatedAt: time.Now()})
 		return nil, errcode.ErrUpstreamInvalid
 	}
 
@@ -455,7 +459,7 @@ func (uc *RelayUsecase) handleNonStreamResponse(
 
 	if httpResp.StatusCode >= 400 {
 		uc.billingUsecase.Refund(ctx, req.UserID, preConsumed)
-		uc.recordChannelStats(channel.ID, false, 0)
+		uc.publishOrRecord(ctx, event.RequestCompletedEvent{RequestID: uuid.NewV7String(), UserID: req.UserID, APIKeyID: req.KeyID, ChannelID: channel.ID, Endpoint: "/v1/chat/completions", Model: req.Request.Model, StatusCode: httpResp.StatusCode, IsStream: false, FirstByteMs: latency, LatencyMs: latency, ErrorMessage: string(body), IPAddress: req.IPAddress, ChannelSuccess: false, CreatedAt: time.Now()})
 		return &RelayResponse{
 			StatusCode: httpResp.StatusCode,
 			Body:       bytes.NewReader(normalizeErrorBody(body)),
@@ -466,7 +470,7 @@ func (uc *RelayUsecase) handleNonStreamResponse(
 	resp, err := ad.TransformResponse(body)
 	if err != nil {
 		uc.billingUsecase.Refund(ctx, req.UserID, preConsumed)
-		uc.recordChannelStats(channel.ID, false, 0)
+		uc.publishOrRecord(ctx, event.RequestCompletedEvent{RequestID: uuid.NewV7String(), UserID: req.UserID, APIKeyID: req.KeyID, ChannelID: channel.ID, Endpoint: "/v1/chat/completions", Model: req.Request.Model, StatusCode: 500, IsStream: false, FirstByteMs: latency, LatencyMs: latency, ErrorMessage: err.Error(), IPAddress: req.IPAddress, ChannelSuccess: false, CreatedAt: time.Now()})
 		return nil, errcode.ErrFormatConvert
 	}
 
@@ -541,7 +545,50 @@ func (uc *RelayUsecase) postConsumeAndRecord(ctx context.Context, channelID stri
 	if err != nil {
 		log.Printf("billing post consume failed: request_id=%s channel_id=%s user_id=%s err=%v", params.RequestID, channelID, params.UserID, err)
 	}
-	uc.recordChannelStats(channelID, true, actualCost)
+	uc.publishOrRecord(ctx, event.RequestCompletedEvent{
+		RequestID:        params.RequestID,
+		UserID:           params.UserID,
+		APIKeyID:         params.KeyID,
+		ChannelID:        channelID,
+		Endpoint:         params.Endpoint,
+		Model:            params.Model,
+		PromptTokens:     params.PromptTokens,
+		CompletionTokens: params.CompletionTokens,
+		TotalTokens:      params.PromptTokens + params.CompletionTokens,
+		Cost:             actualCost,
+		CacheHit:         params.CacheHit,
+		CacheTokens:      params.CacheTokens,
+		StatusCode:       params.StatusCode,
+		IsStream:         params.IsStream,
+		FirstByteMs:      params.FirstByteMs,
+		LatencyMs:        params.LatencyMs,
+		ErrorMessage:     params.ErrorMessage,
+		IPAddress:        params.IPAddress,
+		ChannelSuccess:   err == nil,
+		ChannelQuota:     actualCost,
+		CreatedAt:        time.Now(),
+	})
+}
+
+func (uc *RelayUsecase) publishOrRecord(ctx context.Context, evt event.RequestCompletedEvent) {
+	if evt.CreatedAt.IsZero() {
+		evt.CreatedAt = time.Now()
+	}
+	if uc.eventPublisher != nil {
+		publishCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		err := uc.eventPublisher.PublishRequestCompleted(publishCtx, evt)
+		cancel()
+		if err == nil {
+			return
+		}
+		log.Printf("publish request completed event failed, fallback sync: request_id=%s err=%v", evt.RequestID, err)
+	}
+	if logRepo := uc.billingUsecase.RequestLogRepository(); logRepo != nil {
+		if err := logRepo.Create(evt.RequestLog()); err != nil {
+			log.Printf("fallback request log create failed: request_id=%s err=%v", evt.RequestID, err)
+		}
+	}
+	uc.recordChannelStats(evt.ChannelID, evt.ChannelSuccess, evt.ChannelQuota)
 }
 
 func isStaleNetworkError(err error) bool {
