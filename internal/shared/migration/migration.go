@@ -64,6 +64,9 @@ func applySchemaPatches(db *xorm.Engine) error {
 				FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE;
 			END IF;
 		END $$`,
+		`CREATE INDEX IF NOT EXISTS idx_request_logs_created_at ON request_logs (created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_request_logs_model_created_at ON request_logs (model, created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_request_logs_user_created_at ON request_logs (user_id, created_at DESC)`,
 	}
 
 	for _, statement := range statements {
