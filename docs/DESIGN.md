@@ -160,9 +160,8 @@ llm-gateway/
 │       │   └── repository.go
 │       └── repository/
 │           └── log_repo.go
-├── migrations/
-│   ├── 001_init.up.sql
-│   └── 001_init.down.sql
+├── cmd/migrate/                # 独立数据库迁移 CLI
+│   └── main.go
 ├── web/                      # React前端
 │   ├── src/
 │   ├── package.json
@@ -280,7 +279,9 @@ func (s *BillingService) Refund(ctx context.Context, userID uuid.UUID, amount in
 - request_logs - 请求日志表
 - transactions - 交易记录表
 - redemption_codes - 充值码表
-- system_configs - 系统配置表
+- invite_codes - 邀请码表
+- app_settings - 站点设置表
+- user_channel_permissions - 用户渠道白名单表
 
 ### 3.2 主键设计
 所有表使用UUIDv7作为主键，具有时间有序性和全局唯一性。

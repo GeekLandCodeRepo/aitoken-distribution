@@ -19,9 +19,6 @@ import (
 
 // Up applies schema synchronization and idempotent schema patches.
 func Up(db *xorm.Engine, cfg *config.Config) error {
-	if err := renameLegacyModelTable(db); err != nil {
-		return err
-	}
 	if err := syncTables(db); err != nil {
 		return err
 	}
@@ -30,19 +27,6 @@ func Up(db *xorm.Engine, cfg *config.Config) error {
 	}
 	if err := seedExampleChannels(db, cfg); err != nil {
 		return err
-	}
-	return nil
-}
-
-func renameLegacyModelTable(db *xorm.Engine) error {
-	statement := `DO $$
-	BEGIN
-		IF to_regclass('public.model_pricing') IS NOT NULL AND to_regclass('public.models') IS NULL THEN
-			ALTER TABLE model_pricing RENAME TO models;
-		END IF;
-	END $$`
-	if _, err := db.Exec(statement); err != nil {
-		return fmt.Errorf("rename model_pricing to models: %w", err)
 	}
 	return nil
 }
@@ -64,8 +48,6 @@ func syncTables(db *xorm.Engine) error {
 
 func applySchemaPatches(db *xorm.Engine) error {
 	statements := []string{
-		"ALTER TABLE models ADD COLUMN IF NOT EXISTS cached_prompt_price DECIMAL(16,8) DEFAULT 0",
-		"DROP INDEX IF EXISTS user_channel_permissions_user_channel_uidx",
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_channel_permissions_user_id_fkey') THEN
@@ -88,9 +70,6 @@ func applySchemaPatches(db *xorm.Engine) error {
 		if _, err := db.Exec(statement); err != nil {
 			return fmt.Errorf("apply schema statement %q: %w", statement, err)
 		}
-	}
-	if err := cleanupLegacyColumns(db); err != nil {
-		return err
 	}
 	if err := applySchemaComments(db); err != nil {
 		return err
@@ -208,20 +187,17 @@ func applySchemaComments(db *xorm.Engine) error {
 		},
 		"transactions": {
 			"id":             "交易ID",
-			"i_d":            "旧兼容交易ID字段",
 			"user_id":        "用户ID",
 			"type":           "交易类型：1充值，2消费，3退款，4赠送",
 			"amount":         "交易金额，内部额度单位",
 			"balance_after":  "交易后余额，内部额度单位",
 			"reference_type": "关联对象类型",
 			"reference_id":   "关联对象ID",
-			"reference_i_d":  "旧兼容关联对象ID字段",
 			"description":    "交易描述",
 			"created_at":     "创建时间",
 		},
 		"request_logs": {
 			"id":                "请求日志ID",
-			"i_d":               "旧兼容请求日志ID字段",
 			"user_id":           "用户ID",
 			"api_key_id":        "API密钥ID",
 			"channel_id":        "渠道ID",
@@ -240,14 +216,11 @@ func applySchemaComments(db *xorm.Engine) error {
 			"latency_ms":        "总耗时毫秒",
 			"error_message":     "错误信息",
 			"request_id":        "请求ID",
-			"request_i_d":       "旧兼容请求ID字段",
 			"ip_address":        "客户端IP地址",
-			"i_p_address":       "旧兼容客户端IP地址字段",
 			"created_at":        "创建时间",
 		},
 		"redemption_codes": {
 			"id":         "充值码ID",
-			"i_d":        "旧兼容充值码ID字段",
 			"code":       "充值码",
 			"quota":      "可兑换额度，内部额度单位",
 			"used_by":    "使用人用户ID",
@@ -315,73 +288,6 @@ func columnExists(db *xorm.Engine, table string, column string) (bool, error) {
 	return exists, nil
 }
 
-func cleanupLegacyColumns(db *xorm.Engine) error {
-	legacyCopies := []struct {
-		table  string
-		legacy string
-		target string
-	}{
-		{table: "request_logs", legacy: "request_i_d", target: "request_id"},
-		{table: "request_logs", legacy: "i_p_address", target: "ip_address"},
-		{table: "transactions", legacy: "reference_i_d", target: "reference_id"},
-	}
-	for _, item := range legacyCopies {
-		if err := copyLegacyColumn(db, item.table, item.legacy, item.target); err != nil {
-			return err
-		}
-	}
-
-	legacyColumns := []struct {
-		table  string
-		column string
-	}{
-		{table: "redemption_codes", column: "i_d"},
-		{table: "request_logs", column: "i_d"},
-		{table: "request_logs", column: "request_i_d"},
-		{table: "request_logs", column: "i_p_address"},
-		{table: "transactions", column: "i_d"},
-		{table: "transactions", column: "reference_i_d"},
-	}
-	for _, item := range legacyColumns {
-		statement := fmt.Sprintf("ALTER TABLE %s DROP COLUMN IF EXISTS %s", pq.QuoteIdentifier(item.table), pq.QuoteIdentifier(item.column))
-		if _, err := db.Exec(statement); err != nil {
-			return fmt.Errorf("drop legacy column %s.%s: %w", item.table, item.column, err)
-		}
-	}
-	return nil
-}
-
-func copyLegacyColumn(db *xorm.Engine, table string, legacyColumn string, targetColumn string) error {
-	legacyExists, err := columnExists(db, table, legacyColumn)
-	if err != nil {
-		return err
-	}
-	if !legacyExists {
-		return nil
-	}
-	targetExists, err := columnExists(db, table, targetColumn)
-	if err != nil {
-		return err
-	}
-	if !targetExists {
-		return nil
-	}
-	statement := fmt.Sprintf(
-		"UPDATE %s SET %s = %s WHERE (%s IS NULL OR %s = '') AND %s IS NOT NULL AND %s <> ''",
-		pq.QuoteIdentifier(table),
-		pq.QuoteIdentifier(targetColumn),
-		pq.QuoteIdentifier(legacyColumn),
-		pq.QuoteIdentifier(targetColumn),
-		pq.QuoteIdentifier(targetColumn),
-		pq.QuoteIdentifier(legacyColumn),
-		pq.QuoteIdentifier(legacyColumn),
-	)
-	if _, err := db.Exec(statement); err != nil {
-		return fmt.Errorf("copy legacy column %s.%s to %s: %w", table, legacyColumn, targetColumn, err)
-	}
-	return nil
-}
-
 func seedExampleChannels(db *xorm.Engine, cfg *config.Config) error {
 	const channelName = "DeepSeek官方"
 	const placeholderAPIKey = "replace-with-your-deepseek-api-key"
@@ -421,11 +327,10 @@ func seedExampleChannels(db *xorm.Engine, cfg *config.Config) error {
 		}
 	}
 
-	modelEnabled := channel.Status == 1
-	if err := seedModel(db, channel.ID, "deepseek-v4-flash", 0.14000000, 0.00280000, 0.28000000, modelEnabled); err != nil {
+	if err := seedModel(db, channel.ID, "deepseek-v4-flash", 0.14000000, 0.00280000, 0.28000000, false); err != nil {
 		return err
 	}
-	if err := seedModel(db, channel.ID, "deepseek-v4-pro", 0.43500000, 0.00362500, 0.87000000, modelEnabled); err != nil {
+	if err := seedModel(db, channel.ID, "deepseek-v4-pro", 0.43500000, 0.00362500, 0.87000000, false); err != nil {
 		return err
 	}
 	return nil
