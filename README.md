@@ -300,7 +300,7 @@ aitsd-migrate --skip-env
 
 Web 静态页面使用相对目录 `web/dist` 托管。容器内工作目录是 `/srv`，因此实际目录为 `/srv/web/dist`；本地从仓库根目录启动时则使用 `web/dist`。
 
-是否托管 Web 页面由环境变量控制，默认开启：
+是否托管 Web 页面由环境变量控制，只使用 `true` / `false`，默认开启：
 
 ```env
 SERVE_WEB=true

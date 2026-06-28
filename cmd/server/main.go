@@ -316,11 +316,11 @@ func serveWebUI(r chi.Router) {
 }
 
 func serveWebEnabled() bool {
-	value := strings.TrimSpace(strings.ToLower(os.Getenv("SERVE_WEB")))
+	value := strings.TrimSpace(os.Getenv("SERVE_WEB"))
 	if value == "" {
 		return true
 	}
-	return value != "false" && value != "0" && value != "no" && value != "off"
+	return strings.EqualFold(value, "true")
 }
 
 func resolveWebDistDir() string {
