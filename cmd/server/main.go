@@ -24,9 +24,9 @@ import (
 	channel_repo "llm-gateway/internal/channel/repository"
 	channel_usecase "llm-gateway/internal/channel/usecase"
 
-	pricing_handler "llm-gateway/internal/pricing/handler"
-	pricing_repo "llm-gateway/internal/pricing/repository"
-	pricing_usecase "llm-gateway/internal/pricing/usecase"
+	model_handler "llm-gateway/internal/model/handler"
+	model_repo "llm-gateway/internal/model/repository"
+	model_usecase "llm-gateway/internal/model/usecase"
 
 	"llm-gateway/internal/relay"
 	relay_handler "llm-gateway/internal/relay/handler"
@@ -83,14 +83,14 @@ func main() {
 	apikey_usecase_instance := apikey_usecase.NewKeyUsecase(apikey_repository)
 	apikey_handler := apikey_handler.NewKeyHandler(apikey_usecase_instance)
 
-	// Pricing module
-	pricing_repository := pricing_repo.NewPricingRepository(db)
-	pricing_usecase_instance := pricing_usecase.NewPricingUsecase(pricing_repository)
-	pricing_handler := pricing_handler.NewPricingHandler(pricing_usecase_instance)
+	// Model management module
+	model_repository := model_repo.NewModelRepository(db)
+	model_usecase_instance := model_usecase.NewModelUsecase(model_repository)
+	model_handler := model_handler.NewModelHandler(model_usecase_instance)
 
 	// Channel module
 	channel_repository := channel_repo.NewChannelRepository(db)
-	channel_usecase_instance := channel_usecase.NewChannelUsecase(channel_repository, pricing_repository, keyCrypto)
+	channel_usecase_instance := channel_usecase.NewChannelUsecase(channel_repository, model_repository, keyCrypto)
 	channel_handler := channel_handler.NewChannelHandler(channel_usecase_instance)
 
 	// Billing module
@@ -105,7 +105,7 @@ func main() {
 		apikey_repository_billing,
 		transaction_repository,
 		request_log_repository,
-		pricing_repository,
+		model_repository,
 		rdb,
 	)
 	redeem_usecase := billing_usecase.NewRedeemUsecase(
@@ -129,7 +129,7 @@ func main() {
 		channel_repository,
 		event_publisher,
 	)
-	relay_handler := relay_handler.NewRelayHandler(relay_usecase_instance, pricing_repository, channel_repository)
+	relay_handler := relay_handler.NewRelayHandler(relay_usecase_instance, model_repository, channel_repository)
 
 	r := chi.NewRouter()
 
@@ -220,13 +220,13 @@ func main() {
 					r.Delete("/{id}", channel_handler.DeleteChannel)
 				})
 
-				// Pricing management
-				r.Route("/pricing", func(r chi.Router) {
-					r.Get("/", pricing_handler.ListPricings)
-					r.Post("/", pricing_handler.CreatePricing)
-					r.Put("/{id}", pricing_handler.UpdatePricing)
-					r.Post("/{id}/toggle", pricing_handler.TogglePricing)
-					r.Delete("/{id}", pricing_handler.DeletePricing)
+				// Model management
+				r.Route("/models", func(r chi.Router) {
+					r.Get("/", model_handler.ListModels)
+					r.Post("/", model_handler.CreateModel)
+					r.Put("/{id}", model_handler.UpdateModel)
+					r.Post("/{id}/toggle", model_handler.ToggleModel)
+					r.Delete("/{id}", model_handler.DeleteModel)
 				})
 
 				// Redeem code management

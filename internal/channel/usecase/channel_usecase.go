@@ -7,21 +7,21 @@ import (
 	"llm-gateway/internal/shared/uuid"
 
 	"llm-gateway/internal/channel/domain"
-	pricingDomain "llm-gateway/internal/pricing/domain"
+	modelDomain "llm-gateway/internal/model/domain"
 	"llm-gateway/internal/shared/crypto"
 	"llm-gateway/internal/shared/errcode"
 )
 
 type ChannelUsecase struct {
 	channelRepo domain.ChannelRepository
-	pricingRepo pricingDomain.PricingRepository
+	modelRepo   modelDomain.ModelRepository
 	keyCrypto   *crypto.ChaCha20Poly1305Crypto
 }
 
-func NewChannelUsecase(channelRepo domain.ChannelRepository, pricingRepo pricingDomain.PricingRepository, keyCrypto *crypto.ChaCha20Poly1305Crypto) *ChannelUsecase {
+func NewChannelUsecase(channelRepo domain.ChannelRepository, modelRepo modelDomain.ModelRepository, keyCrypto *crypto.ChaCha20Poly1305Crypto) *ChannelUsecase {
 	return &ChannelUsecase{
 		channelRepo: channelRepo,
-		pricingRepo: pricingRepo,
+		modelRepo:   modelRepo,
 		keyCrypto:   keyCrypto,
 	}
 }
@@ -122,7 +122,7 @@ func (uc *ChannelUsecase) CreateChannel(req CreateChannelRequest) (*domain.Chann
 	if err := uc.channelRepo.Create(channel); err != nil {
 		return nil, errcode.ErrDatabase
 	}
-	uc.ensureDefaultPricings(channel.ID, req.Models)
+	uc.ensureDefaultModels(channel.ID, req.Models)
 
 	return channel, nil
 }
@@ -146,24 +146,24 @@ func (uc *ChannelUsecase) ListModelPlaza(userID string) ([]ModelPlazaChannel, er
 	enabled := true
 	result := make([]ModelPlazaChannel, 0, len(channels))
 	for _, channel := range channels {
-		pricings, err := uc.pricingRepo.List(&channel.ID, &enabled, "")
+		channelModels, err := uc.modelRepo.List(&channel.ID, &enabled, "")
 		if err != nil {
 			return nil, errcode.ErrDatabase
 		}
-		if len(pricings) == 0 {
+		if len(channelModels) == 0 {
 			continue
 		}
 
-		models := make([]ModelPlazaModel, 0, len(pricings))
-		for _, pricing := range pricings {
+		models := make([]ModelPlazaModel, 0, len(channelModels))
+		for _, model := range channelModels {
 			models = append(models, ModelPlazaModel{
-				ModelName:         pricing.ModelName,
-				PromptPrice:       pricing.PromptPrice,
-				PromptUnit:        pricing.PromptUnit,
-				CompletionPrice:   pricing.CompletionPrice,
-				CompletionUnit:    pricing.CompletionUnit,
-				CachedPromptPrice: pricing.CachedPromptPrice,
-				Currency:          pricing.Currency,
+				ModelName:         model.ModelName,
+				PromptPrice:       model.PromptPrice,
+				PromptUnit:        model.PromptUnit,
+				CompletionPrice:   model.CompletionPrice,
+				CompletionUnit:    model.CompletionUnit,
+				CachedPromptPrice: model.CachedPromptPrice,
+				Currency:          model.Currency,
 			})
 		}
 
@@ -212,7 +212,7 @@ func (uc *ChannelUsecase) UpdateChannel(id string, req CreateChannelRequest) (*d
 		channel.APIKeyEnc = encKey
 	}
 	if req.Models != nil {
-		uc.syncModelPricings(channel.ID, channel.Models, req.Models)
+		uc.syncModels(channel.ID, channel.Models, req.Models)
 		data, _ := json.Marshal(req.Models)
 		channel.Models = string(data)
 	}
@@ -248,13 +248,13 @@ func (uc *ChannelUsecase) DeleteChannel(id string) error {
 	if err != nil {
 		return err
 	}
-	if err := uc.pricingRepo.DeleteByChannel(channel.ID); err != nil {
+	if err := uc.modelRepo.DeleteByChannel(channel.ID); err != nil {
 		return errcode.ErrDatabase
 	}
 	return uc.channelRepo.Delete(channel.ID)
 }
 
-func (uc *ChannelUsecase) ensureDefaultPricings(channelID string, models []string) {
+func (uc *ChannelUsecase) ensureDefaultModels(channelID string, models []string) {
 	seen := make(map[string]struct{}, len(models))
 	for _, model := range models {
 		if model == "" {
@@ -265,11 +265,11 @@ func (uc *ChannelUsecase) ensureDefaultPricings(channelID string, models []strin
 		}
 		seen[model] = struct{}{}
 
-		existing, err := uc.pricingRepo.GetByChannelAndModel(channelID, model)
+		existing, err := uc.modelRepo.GetByChannelAndModel(channelID, model)
 		if err != nil || existing != nil {
 			continue
 		}
-		_ = uc.pricingRepo.Create(&pricingDomain.Pricing{
+		_ = uc.modelRepo.Create(&modelDomain.Model{
 			ID:                uuid.NewV7String(),
 			ChannelID:         channelID,
 			ModelName:         model,
@@ -286,7 +286,7 @@ func (uc *ChannelUsecase) ensureDefaultPricings(channelID string, models []strin
 	}
 }
 
-func (uc *ChannelUsecase) syncModelPricings(channelID string, oldModelsJSON string, newModels []string) {
+func (uc *ChannelUsecase) syncModels(channelID string, oldModelsJSON string, newModels []string) {
 	var oldModels []string
 	_ = json.Unmarshal([]byte(oldModelsJSON), &oldModels)
 
@@ -306,12 +306,12 @@ func (uc *ChannelUsecase) syncModelPricings(channelID string, oldModelsJSON stri
 
 	for model := range newSet {
 		if _, ok := oldSet[model]; !ok {
-			uc.ensureDefaultPricings(channelID, []string{model})
+			uc.ensureDefaultModels(channelID, []string{model})
 		}
 	}
 	for model := range oldSet {
 		if _, ok := newSet[model]; !ok {
-			_ = uc.pricingRepo.DeleteByChannelAndModel(channelID, model)
+			_ = uc.modelRepo.DeleteByChannelAndModel(channelID, model)
 		}
 	}
 }

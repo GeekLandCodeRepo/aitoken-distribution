@@ -10,7 +10,7 @@ import (
 	apikeyDomain "llm-gateway/internal/apikey/domain"
 	billingDomain "llm-gateway/internal/billing/domain"
 	channelDomain "llm-gateway/internal/channel/domain"
-	pricingDomain "llm-gateway/internal/pricing/domain"
+	modelDomain "llm-gateway/internal/model/domain"
 	"llm-gateway/internal/shared/config"
 	"llm-gateway/internal/shared/crypto"
 	"llm-gateway/internal/shared/uuid"
@@ -19,6 +19,9 @@ import (
 
 // Up applies schema synchronization and idempotent schema patches.
 func Up(db *xorm.Engine, cfg *config.Config) error {
+	if err := renameLegacyModelTable(db); err != nil {
+		return err
+	}
 	if err := syncTables(db); err != nil {
 		return err
 	}
@@ -31,6 +34,19 @@ func Up(db *xorm.Engine, cfg *config.Config) error {
 	return nil
 }
 
+func renameLegacyModelTable(db *xorm.Engine) error {
+	statement := `DO $$
+	BEGIN
+		IF to_regclass('public.model_pricing') IS NOT NULL AND to_regclass('public.models') IS NULL THEN
+			ALTER TABLE model_pricing RENAME TO models;
+		END IF;
+	END $$`
+	if _, err := db.Exec(statement); err != nil {
+		return fmt.Errorf("rename model_pricing to models: %w", err)
+	}
+	return nil
+}
+
 func syncTables(db *xorm.Engine) error {
 	return db.Sync2(
 		&userDomain.User{},
@@ -39,7 +55,7 @@ func syncTables(db *xorm.Engine) error {
 		&userDomain.UserChannelPermission{},
 		&apikeyDomain.ApiKey{},
 		&channelDomain.Channel{},
-		&pricingDomain.Pricing{},
+		&modelDomain.Model{},
 		&billingDomain.Transaction{},
 		&billingDomain.RequestLog{},
 		&billingDomain.RedeemCode{},
@@ -48,7 +64,7 @@ func syncTables(db *xorm.Engine) error {
 
 func applySchemaPatches(db *xorm.Engine) error {
 	statements := []string{
-		"ALTER TABLE model_pricing ADD COLUMN IF NOT EXISTS cached_prompt_price DECIMAL(16,8) DEFAULT 0",
+		"ALTER TABLE models ADD COLUMN IF NOT EXISTS cached_prompt_price DECIMAL(16,8) DEFAULT 0",
 		"DROP INDEX IF EXISTS user_channel_permissions_user_channel_uidx",
 		`DO $$
 		BEGIN
@@ -90,7 +106,7 @@ func applySchemaComments(db *xorm.Engine) error {
 		"user_channel_permissions": "用户可用渠道白名单表",
 		"api_keys":                 "API密钥表",
 		"channels":                 "渠道表",
-		"model_pricing":            "模型定价表",
+		"models":                   "模型管理表",
 		"transactions":             "交易流水表",
 		"request_logs":             "请求日志表",
 		"redemption_codes":         "充值码表",
@@ -174,8 +190,8 @@ func applySchemaComments(db *xorm.Engine) error {
 			"created_at":    "创建时间",
 			"updated_at":    "更新时间",
 		},
-		"model_pricing": {
-			"id":                  "定价ID",
+		"models": {
+			"id":                  "模型配置ID",
 			"channel_id":          "所属渠道ID",
 			"model_name":          "模型名称",
 			"prompt_price":        "输入价格",
@@ -186,7 +202,7 @@ func applySchemaComments(db *xorm.Engine) error {
 			"image_price":         "图片价格",
 			"audio_price":         "音频价格",
 			"currency":            "币种",
-			"enabled":             "是否启用该定价",
+			"enabled":             "是否启用该模型",
 			"created_at":          "创建时间",
 			"updated_at":          "更新时间",
 		},
@@ -404,27 +420,27 @@ func seedExampleChannels(db *xorm.Engine, cfg *config.Config) error {
 		}
 	}
 
-	if err := seedModelPricing(db, channel.ID, "deepseek-v4-flash", 0.14000000, 0.00280000, 0.28000000); err != nil {
+	if err := seedModel(db, channel.ID, "deepseek-v4-flash", 0.14000000, 0.00280000, 0.28000000); err != nil {
 		return err
 	}
-	if err := seedModelPricing(db, channel.ID, "deepseek-v4-pro", 0.43500000, 0.00362500, 0.87000000); err != nil {
+	if err := seedModel(db, channel.ID, "deepseek-v4-pro", 0.43500000, 0.00362500, 0.87000000); err != nil {
 		return err
 	}
 	return nil
 }
 
-func seedModelPricing(db *xorm.Engine, channelID string, modelName string, promptPrice float64, cachedPromptPrice float64, completionPrice float64) error {
-	var existing pricingDomain.Pricing
+func seedModel(db *xorm.Engine, channelID string, modelName string, promptPrice float64, cachedPromptPrice float64, completionPrice float64) error {
+	var existing modelDomain.Model
 	has, err := db.Where("channel_id = ? AND model_name = ?", channelID, modelName).Get(&existing)
 	if err != nil {
-		return fmt.Errorf("check example pricing %s: %w", modelName, err)
+		return fmt.Errorf("check example model %s: %w", modelName, err)
 	}
 	if has {
 		return nil
 	}
 
 	now := time.Now()
-	pricing := pricingDomain.Pricing{
+	model := modelDomain.Model{
 		ID:                uuid.NewV7String(),
 		ChannelID:         channelID,
 		ModelName:         modelName,
@@ -438,8 +454,8 @@ func seedModelPricing(db *xorm.Engine, channelID string, modelName string, promp
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}
-	if _, err := db.Insert(&pricing); err != nil {
-		return fmt.Errorf("seed example pricing %s: %w", modelName, err)
+	if _, err := db.Insert(&model); err != nil {
+		return fmt.Errorf("seed example model %s: %w", modelName, err)
 	}
 	return nil
 }

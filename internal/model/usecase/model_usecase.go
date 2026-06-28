@@ -5,19 +5,19 @@ import (
 
 	"llm-gateway/internal/shared/uuid"
 
-	"llm-gateway/internal/pricing/domain"
+	"llm-gateway/internal/model/domain"
 	"llm-gateway/internal/shared/errcode"
 )
 
-type PricingUsecase struct {
-	pricingRepo domain.PricingRepository
+type ModelUsecase struct {
+	modelRepo domain.ModelRepository
 }
 
-func NewPricingUsecase(pricingRepo domain.PricingRepository) *PricingUsecase {
-	return &PricingUsecase{pricingRepo: pricingRepo}
+func NewModelUsecase(modelRepo domain.ModelRepository) *ModelUsecase {
+	return &ModelUsecase{modelRepo: modelRepo}
 }
 
-type CreatePricingRequest struct {
+type CreateModelRequest struct {
 	ChannelID         string   `json:"channel_id"`
 	ModelName         string   `json:"model_name"`
 	PromptPrice       float64  `json:"prompt_price"`
@@ -31,7 +31,7 @@ type CreatePricingRequest struct {
 	Enabled           *bool    `json:"enabled"`
 }
 
-func (uc *PricingUsecase) CreatePricing(req CreatePricingRequest) (*domain.Pricing, error) {
+func (uc *ModelUsecase) CreateModel(req CreateModelRequest) (*domain.Model, error) {
 	if req.ChannelID == "" {
 		return nil, errcode.ErrInvalidChanType
 	}
@@ -58,9 +58,9 @@ func (uc *PricingUsecase) CreatePricing(req CreatePricingRequest) (*domain.Prici
 		req.Currency = "USD"
 	}
 
-	existing, _ := uc.pricingRepo.GetByChannelAndModel(req.ChannelID, req.ModelName)
+	existing, _ := uc.modelRepo.GetByChannelAndModel(req.ChannelID, req.ModelName)
 	if existing != nil {
-		return nil, errcode.ErrPricingExists
+		return nil, errcode.ErrModelExists
 	}
 
 	enabled := true
@@ -68,7 +68,7 @@ func (uc *PricingUsecase) CreatePricing(req CreatePricingRequest) (*domain.Prici
 		enabled = *req.Enabled
 	}
 
-	pricing := &domain.Pricing{
+	model := &domain.Model{
 		ID:                uuid.NewV7String(),
 		ChannelID:         req.ChannelID,
 		ModelName:         req.ModelName,
@@ -85,30 +85,30 @@ func (uc *PricingUsecase) CreatePricing(req CreatePricingRequest) (*domain.Prici
 		UpdatedAt:         time.Now(),
 	}
 
-	if err := uc.pricingRepo.Create(pricing); err != nil {
+	if err := uc.modelRepo.Create(model); err != nil {
 		return nil, errcode.ErrDatabase
 	}
 
-	return pricing, nil
+	return model, nil
 }
 
-func (uc *PricingUsecase) ListPricings(channelID *string, enabled *bool, search string) ([]*domain.Pricing, error) {
-	return uc.pricingRepo.List(channelID, enabled, search)
+func (uc *ModelUsecase) ListModels(channelID *string, enabled *bool, search string) ([]*domain.Model, error) {
+	return uc.modelRepo.List(channelID, enabled, search)
 }
 
-func (uc *PricingUsecase) GetPricing(id string) (*domain.Pricing, error) {
-	pricing, err := uc.pricingRepo.GetByID(id)
+func (uc *ModelUsecase) GetModel(id string) (*domain.Model, error) {
+	model, err := uc.modelRepo.GetByID(id)
 	if err != nil {
 		return nil, errcode.ErrDatabase
 	}
-	if pricing == nil {
-		return nil, errcode.ErrPricingNotFound
+	if model == nil {
+		return nil, errcode.ErrModelNotFound
 	}
-	return pricing, nil
+	return model, nil
 }
 
-func (uc *PricingUsecase) UpdatePricing(id string, req CreatePricingRequest) (*domain.Pricing, error) {
-	pricing, err := uc.GetPricing(id)
+func (uc *ModelUsecase) UpdateModel(id string, req CreateModelRequest) (*domain.Model, error) {
+	model, err := uc.GetModel(id)
 	if err != nil {
 		return nil, err
 	}
@@ -123,74 +123,74 @@ func (uc *PricingUsecase) UpdatePricing(id string, req CreatePricingRequest) (*d
 	}
 
 	if req.ChannelID != "" {
-		pricing.ChannelID = req.ChannelID
+		model.ChannelID = req.ChannelID
 	}
 	if req.ModelName != "" {
-		pricing.ModelName = req.ModelName
+		model.ModelName = req.ModelName
 	}
 	if req.PromptPrice >= 0 {
-		pricing.PromptPrice = req.PromptPrice
+		model.PromptPrice = req.PromptPrice
 	}
 	if req.PromptUnit > 0 {
-		pricing.PromptUnit = req.PromptUnit
+		model.PromptUnit = req.PromptUnit
 	}
 	if req.CompletionPrice >= 0 {
-		pricing.CompletionPrice = req.CompletionPrice
+		model.CompletionPrice = req.CompletionPrice
 	}
 	if req.CompletionUnit > 0 {
-		pricing.CompletionUnit = req.CompletionUnit
+		model.CompletionUnit = req.CompletionUnit
 	}
 	if req.ImagePrice != nil {
-		pricing.ImagePrice = req.ImagePrice
+		model.ImagePrice = req.ImagePrice
 	}
 	if req.AudioPrice != nil {
-		pricing.AudioPrice = req.AudioPrice
+		model.AudioPrice = req.AudioPrice
 	}
-	pricing.CachedPromptPrice = req.CachedPromptPrice
+	model.CachedPromptPrice = req.CachedPromptPrice
 	if req.Currency != "" {
-		pricing.Currency = req.Currency
+		model.Currency = req.Currency
 	}
 	if req.Enabled != nil {
-		pricing.Enabled = *req.Enabled
+		model.Enabled = *req.Enabled
 	}
 
-	pricing.UpdatedAt = time.Now()
-	if err := uc.pricingRepo.Update(pricing); err != nil {
+	model.UpdatedAt = time.Now()
+	if err := uc.modelRepo.Update(model); err != nil {
 		return nil, errcode.ErrDatabase
 	}
-	return uc.GetPricing(pricing.ID)
+	return uc.GetModel(model.ID)
 }
 
-func (uc *PricingUsecase) TogglePricing(id string, enabled *bool) (*domain.Pricing, error) {
-	pricing, err := uc.GetPricing(id)
+func (uc *ModelUsecase) ToggleModel(id string, enabled *bool) (*domain.Model, error) {
+	model, err := uc.GetModel(id)
 	if err != nil {
 		return nil, err
 	}
 
 	if enabled != nil {
-		pricing.Enabled = *enabled
+		model.Enabled = *enabled
 	} else {
-		pricing.Enabled = !pricing.Enabled
+		model.Enabled = !model.Enabled
 	}
-	if err := uc.pricingRepo.UpdateEnabled(pricing.ID, pricing.Enabled); err != nil {
+	if err := uc.modelRepo.UpdateEnabled(model.ID, model.Enabled); err != nil {
 		return nil, errcode.ErrDatabase
 	}
-	return uc.GetPricing(pricing.ID)
+	return uc.GetModel(model.ID)
 }
 
-func (uc *PricingUsecase) DeletePricing(id string) error {
-	pricing, err := uc.GetPricing(id)
+func (uc *ModelUsecase) DeleteModel(id string) error {
+	model, err := uc.GetModel(id)
 	if err != nil {
 		return err
 	}
-	return uc.pricingRepo.Delete(pricing.ID)
+	return uc.modelRepo.Delete(model.ID)
 }
 
-func (uc *PricingUsecase) GetPricingByChannelAndModel(channelID string, modelName string) (*domain.Pricing, error) {
-	return uc.pricingRepo.GetByChannelAndModel(channelID, modelName)
+func (uc *ModelUsecase) GetModelByChannelAndModel(channelID string, modelName string) (*domain.Model, error) {
+	return uc.modelRepo.GetByChannelAndModel(channelID, modelName)
 }
 
-func (uc *PricingUsecase) CalculateCost(pricing *domain.Pricing, promptTokens, completionTokens int, cacheHit bool) int64 {
+func (uc *ModelUsecase) CalculateCost(pricing *domain.Model, promptTokens, completionTokens int, cacheHit bool) int64 {
 	var promptCost, completionCost float64
 
 	if cacheHit {

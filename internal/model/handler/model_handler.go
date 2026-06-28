@@ -6,20 +6,20 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"llm-gateway/internal/pricing/usecase"
+	"llm-gateway/internal/model/usecase"
 	"llm-gateway/internal/shared/errcode"
 	"llm-gateway/internal/shared/resp"
 )
 
-type PricingHandler struct {
-	pricingUsecase *usecase.PricingUsecase
+type ModelHandler struct {
+	modelUsecase *usecase.ModelUsecase
 }
 
-func NewPricingHandler(pricingUsecase *usecase.PricingUsecase) *PricingHandler {
-	return &PricingHandler{pricingUsecase: pricingUsecase}
+func NewModelHandler(modelUsecase *usecase.ModelUsecase) *ModelHandler {
+	return &ModelHandler{modelUsecase: modelUsecase}
 }
 
-func (h *PricingHandler) ListPricings(w http.ResponseWriter, r *http.Request) {
+func (h *ModelHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	var channelID *string
 	var enabled *bool
 	if c := r.URL.Query().Get("channel_id"); c != "" {
@@ -31,7 +31,7 @@ func (h *PricingHandler) ListPricings(w http.ResponseWriter, r *http.Request) {
 	}
 	search := r.URL.Query().Get("search")
 
-	pricings, err := h.pricingUsecase.ListPricings(channelID, enabled, search)
+	models, err := h.modelUsecase.ListModels(channelID, enabled, search)
 	if err != nil {
 		if appErr, ok := err.(*errcode.AppError); ok {
 			resp.Error(w, appErr)
@@ -41,17 +41,17 @@ func (h *PricingHandler) ListPricings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp.Success(w, pricings)
+	resp.Success(w, models)
 }
 
-func (h *PricingHandler) CreatePricing(w http.ResponseWriter, r *http.Request) {
-	var req usecase.CreatePricingRequest
+func (h *ModelHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
+	var req usecase.CreateModelRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		resp.Error(w, errcode.ErrInvalidBody)
 		return
 	}
 
-	pricing, err := h.pricingUsecase.CreatePricing(req)
+	model, err := h.modelUsecase.CreateModel(req)
 	if err != nil {
 		if appErr, ok := err.(*errcode.AppError); ok {
 			resp.Error(w, appErr)
@@ -61,23 +61,23 @@ func (h *PricingHandler) CreatePricing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp.Created(w, pricing)
+	resp.Created(w, model)
 }
 
-func (h *PricingHandler) UpdatePricing(w http.ResponseWriter, r *http.Request) {
+func (h *ModelHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		resp.Error(w, errcode.ErrInvalidUserID)
 		return
 	}
 
-	var req usecase.CreatePricingRequest
+	var req usecase.CreateModelRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		resp.Error(w, errcode.ErrInvalidBody)
 		return
 	}
 
-	pricing, err := h.pricingUsecase.UpdatePricing(id, req)
+	model, err := h.modelUsecase.UpdateModel(id, req)
 	if err != nil {
 		if appErr, ok := err.(*errcode.AppError); ok {
 			resp.Error(w, appErr)
@@ -87,10 +87,10 @@ func (h *PricingHandler) UpdatePricing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp.Success(w, pricing)
+	resp.Success(w, model)
 }
 
-func (h *PricingHandler) TogglePricing(w http.ResponseWriter, r *http.Request) {
+func (h *ModelHandler) ToggleModel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		resp.Error(w, errcode.ErrInvalidUserID)
@@ -104,7 +104,7 @@ func (h *PricingHandler) TogglePricing(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&req)
 	}
 
-	pricing, err := h.pricingUsecase.TogglePricing(id, req.Enabled)
+	model, err := h.modelUsecase.ToggleModel(id, req.Enabled)
 	if err != nil {
 		if appErr, ok := err.(*errcode.AppError); ok {
 			resp.Error(w, appErr)
@@ -114,17 +114,17 @@ func (h *PricingHandler) TogglePricing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp.Success(w, pricing)
+	resp.Success(w, model)
 }
 
-func (h *PricingHandler) DeletePricing(w http.ResponseWriter, r *http.Request) {
+func (h *ModelHandler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		resp.Error(w, errcode.ErrInvalidUserID)
 		return
 	}
 
-	if err := h.pricingUsecase.DeletePricing(id); err != nil {
+	if err := h.modelUsecase.DeleteModel(id); err != nil {
 		if appErr, ok := err.(*errcode.AppError); ok {
 			resp.Error(w, appErr)
 		} else {
@@ -133,5 +133,5 @@ func (h *PricingHandler) DeletePricing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp.Success(w, map[string]string{"message": "pricing deleted successfully"})
+	resp.Success(w, map[string]string{"message": "model deleted successfully"})
 }

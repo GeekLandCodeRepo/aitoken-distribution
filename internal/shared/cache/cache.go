@@ -9,7 +9,7 @@ import (
 
 const (
 	ChannelCandidatesTTL = 45 * time.Second
-	ModelPricingTTL      = 2 * time.Minute
+	ModelTTL             = 2 * time.Minute
 )
 
 func DeleteKeys(ctx context.Context, keys ...string) {

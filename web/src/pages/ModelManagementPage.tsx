@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { pricingApi, type Pricing, type CreatePricingRequest } from '@/api/pricing'
+import { adminModelApi, type ManagedModel, type CreateManagedModelRequest } from '@/api/model'
 import { channelApi, type Channel } from '@/api/channel'
 
 const UNIT_OPTIONS = [
@@ -42,15 +42,15 @@ const UNIT_OPTIONS = [
   { value: '200000000', label: '200M' },
 ]
 
-export function PricingPage() {
+export function ModelManagementPage() {
   const { t } = useTranslation()
-  const [pricings, setPricings] = useState<Pricing[]>([])
+  const [models, setModels] = useState<ManagedModel[]>([])
   const [channels, setChannels] = useState<Channel[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingPricingId, setEditingPricingId] = useState<string | null>(null)
-  const [updatingPricingIds, setUpdatingPricingIds] = useState<Set<string>>(new Set())
-  const [newPricing, setNewPricing] = useState<CreatePricingRequest>({
+  const [editingModelId, setEditingModelId] = useState<string | null>(null)
+  const [updatingModelIds, setUpdatingModelIds] = useState<Set<string>>(new Set())
+  const [newModel, setNewModel] = useState<CreateManagedModelRequest>({
     channel_id: '',
     model_name: '',
     prompt_price: 0,
@@ -63,17 +63,17 @@ export function PricingPage() {
   })
 
   useEffect(() => {
-    fetchPricings()
+    fetchModels()
     fetchChannels()
   }, [])
 
-  const fetchPricings = async () => {
+  const fetchModels = async () => {
     setLoading(true)
     try {
-      const data = await pricingApi.list()
-      setPricings(data || [])
+      const data = await adminModelApi.list()
+      setModels(data || [])
     } catch (err) {
-      console.error('Failed to fetch pricings:', err)
+      console.error('Failed to fetch models:', err)
     } finally {
       setLoading(false)
     }
@@ -93,8 +93,8 @@ export function PricingPage() {
   }
 
   const resetForm = () => {
-    setEditingPricingId(null)
-    setNewPricing({
+    setEditingModelId(null)
+    setNewModel({
       channel_id: '',
       model_name: '',
       prompt_price: 0,
@@ -108,81 +108,71 @@ export function PricingPage() {
   }
 
   const handleSubmit = async () => {
-    if (!newPricing.model_name || !newPricing.channel_id) return
+    if (!newModel.model_name || !newModel.channel_id) return
 
     try {
-      if (editingPricingId) {
-        const updated = await pricingApi.update(editingPricingId, newPricing)
-        setPricings((items) => items.map((item) => item.id === editingPricingId ? updated : item))
+      if (editingModelId) {
+        const updated = await adminModelApi.update(editingModelId, newModel)
+        setModels((items) => items.map((item) => item.id === editingModelId ? updated : item))
       } else {
-        const created = await pricingApi.create(newPricing)
-        setPricings((items) => [created, ...items])
+        const created = await adminModelApi.create(newModel)
+        setModels((items) => [created, ...items])
       }
       setDialogOpen(false)
       resetForm()
-      await fetchPricings()
+      await fetchModels()
     } catch (err: any) {
-      alert(err.message || t('pricing.addFailed'))
+      alert(err.message || t('modelManagement.addFailed'))
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('pricing.deleteConfirm'))) return
+    if (!confirm(t('modelManagement.deleteConfirm'))) return
 
     try {
-      await pricingApi.delete(id)
-      setPricings((items) => items.filter((item) => item.id !== id))
-      await fetchPricings()
+      await adminModelApi.delete(id)
+      setModels((items) => items.filter((item) => item.id !== id))
+      await fetchModels()
     } catch (err: any) {
-      alert(err.message || t('pricing.deleteFailed'))
+      alert(err.message || t('modelManagement.deleteFailed'))
     }
   }
 
-  const handleToggleEnabled = async (pricing: Pricing, enabled: boolean) => {
-    if (updatingPricingIds.has(pricing.id)) return
+  const handleToggleEnabled = async (model: ManagedModel, enabled: boolean) => {
+    if (updatingModelIds.has(model.id)) return
 
-    setUpdatingPricingIds((ids) => new Set(ids).add(pricing.id))
-    setPricings((items) => items.map((item) => item.id === pricing.id ? { ...item, enabled } : item))
+    setUpdatingModelIds((ids) => new Set(ids).add(model.id))
+    setModels((items) => items.map((item) => item.id === model.id ? { ...item, enabled } : item))
 
     try {
-      const updated = await pricingApi.toggle(pricing.id, enabled)
-      setPricings((items) => items.map((item) => item.id === pricing.id ? updated : item))
+      const updated = await adminModelApi.toggle(model.id, enabled)
+      setModels((items) => items.map((item) => item.id === model.id ? updated : item))
     } catch (err: any) {
-      setPricings((items) => items.map((item) => item.id === pricing.id ? { ...item, enabled: pricing.enabled } : item))
-      alert(err.message || t('pricing.updateFailed'))
+      setModels((items) => items.map((item) => item.id === model.id ? { ...item, enabled: model.enabled } : item))
+      alert(err.message || t('modelManagement.updateFailed'))
     } finally {
-      setUpdatingPricingIds((ids) => {
+      setUpdatingModelIds((ids) => {
         const next = new Set(ids)
-        next.delete(pricing.id)
+        next.delete(model.id)
         return next
       })
     }
   }
 
-  const handleSync = async () => {
-    try {
-      const result = await pricingApi.sync()
-      alert(t('pricing.syncResult', { created: result.created.length, skipped: result.skipped.length }))
-      await fetchPricings()
-    } catch (err: any) {
-      alert(err.message || t('pricing.syncFailed'))
-    }
-  }
-
-  const handleEdit = (pricing: Pricing) => {
-    setEditingPricingId(pricing.id)
-    setNewPricing({
-      channel_id: pricing.channel_id,
-      model_name: pricing.model_name,
-      prompt_price: pricing.prompt_price,
-      prompt_unit: pricing.prompt_unit,
-      completion_price: pricing.completion_price,
-      completion_unit: pricing.completion_unit,
-      image_price: pricing.image_price ?? undefined,
-      audio_price: pricing.audio_price ?? undefined,
-      cached_prompt_price: pricing.cached_prompt_price,
-      currency: pricing.currency,
-      enabled: pricing.enabled,
+  const handleEdit = (model: ManagedModel) => {
+    setEditingModelId(model.id)
+    setNewModel({
+      channel_id: model.channel_id,
+      model_name: model.model_name,
+      prompt_price: model.prompt_price,
+      prompt_unit: model.prompt_unit,
+      completion_price: model.completion_price,
+      completion_unit: model.completion_unit,
+      image_price: model.image_price ?? undefined,
+      audio_price: model.audio_price ?? undefined,
+      cached_prompt_price: model.cached_prompt_price,
+      currency: model.currency,
+      enabled: model.enabled,
     })
     setDialogOpen(true)
   }
@@ -196,30 +186,29 @@ export function PricingPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">{t('pricing.title')}</h2>
+        <h2 className="text-2xl font-bold">{t('modelManagement.title')}</h2>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleSync}>{t('pricing.syncModels')}</Button>
           <Dialog open={dialogOpen} onOpenChange={(open) => {
             setDialogOpen(open)
             if (!open) resetForm()
           }}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm}>{t('pricing.addPricing')}</Button>
+              <Button onClick={resetForm}>{t('modelManagement.addModel')}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{editingPricingId ? t('pricing.editTitle') : t('pricing.addTitle')}</DialogTitle>
-                <DialogDescription>{editingPricingId ? t('pricing.editDesc') : t('pricing.addDesc')}</DialogDescription>
+                <DialogTitle>{editingModelId ? t('modelManagement.editTitle') : t('modelManagement.addTitle')}</DialogTitle>
+                <DialogDescription>{editingModelId ? t('modelManagement.editDesc') : t('modelManagement.addDesc')}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>{t('pricing.channel')}</Label>
+                  <Label>{t('modelManagement.channel')}</Label>
                   <Select
-                    value={newPricing.channel_id}
-                    onValueChange={(v: string) => setNewPricing({ ...newPricing, channel_id: v })}
+                    value={newModel.channel_id}
+                    onValueChange={(v: string) => setNewModel({ ...newModel, channel_id: v })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={t('pricing.channelPlaceholder')} />
+                      <SelectValue placeholder={t('modelManagement.channelPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {channels.map((ch) => (
@@ -231,28 +220,28 @@ export function PricingPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('pricing.modelName')}</Label>
+                  <Label>{t('modelManagement.modelName')}</Label>
                   <Input
                     placeholder="gpt-4o"
-                    value={newPricing.model_name}
-                    onChange={(e) => setNewPricing({ ...newPricing, model_name: e.target.value })}
+                    value={newModel.model_name}
+                    onChange={(e) => setNewModel({ ...newModel, model_name: e.target.value })}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>{t('pricing.promptPrice')}</Label>
+                    <Label>{t('modelManagement.promptPrice')}</Label>
                     <Input
                       type="number"
                       step="0.000001"
-                      value={newPricing.prompt_price}
-                      onChange={(e) => setNewPricing({ ...newPricing, prompt_price: parseFloat(e.target.value) || 0 })}
+                      value={newModel.prompt_price}
+                      onChange={(e) => setNewModel({ ...newModel, prompt_price: parseFloat(e.target.value) || 0 })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{t('pricing.promptUnit')}</Label>
+                    <Label>{t('modelManagement.promptUnit')}</Label>
                     <Select
-                      value={String(newPricing.prompt_unit)}
-                      onValueChange={(v: string) => setNewPricing({ ...newPricing, prompt_unit: parseInt(v) })}
+                      value={String(newModel.prompt_unit)}
+                      onValueChange={(v: string) => setNewModel({ ...newModel, prompt_unit: parseInt(v) })}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -267,19 +256,19 @@ export function PricingPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>{t('pricing.completionPrice')}</Label>
+                    <Label>{t('modelManagement.completionPrice')}</Label>
                     <Input
                       type="number"
                       step="0.000001"
-                      value={newPricing.completion_price}
-                      onChange={(e) => setNewPricing({ ...newPricing, completion_price: parseFloat(e.target.value) || 0 })}
+                      value={newModel.completion_price}
+                      onChange={(e) => setNewModel({ ...newModel, completion_price: parseFloat(e.target.value) || 0 })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{t('pricing.completionUnit')}</Label>
+                    <Label>{t('modelManagement.completionUnit')}</Label>
                     <Select
-                      value={String(newPricing.completion_unit)}
-                      onValueChange={(v: string) => setNewPricing({ ...newPricing, completion_unit: parseInt(v) })}
+                      value={String(newModel.completion_unit)}
+                      onValueChange={(v: string) => setNewModel({ ...newModel, completion_unit: parseInt(v) })}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -294,28 +283,28 @@ export function PricingPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>{t('pricing.cachedPromptPrice')}</Label>
+                    <Label>{t('modelManagement.cachedPromptPrice')}</Label>
                     <Input
                       type="number"
                       step="0.000001"
-                      value={newPricing.cached_prompt_price}
-                      onChange={(e) => setNewPricing({ ...newPricing, cached_prompt_price: parseFloat(e.target.value) || 0 })}
+                      value={newModel.cached_prompt_price}
+                      onChange={(e) => setNewModel({ ...newModel, cached_prompt_price: parseFloat(e.target.value) || 0 })}
                     />
                   </div>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div className="space-y-0.5">
-                    <Label>{t('pricing.enabled')}</Label>
-                    <p className="text-sm text-muted-foreground">{t('pricing.enabledDesc')}</p>
+                    <Label>{t('modelManagement.enabled')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('modelManagement.enabledDesc')}</p>
                   </div>
                   <Switch
-                    checked={newPricing.enabled ?? false}
-                    onCheckedChange={(checked) => setNewPricing({ ...newPricing, enabled: checked })}
+                    checked={newModel.enabled ?? false}
+                    onCheckedChange={(checked) => setNewModel({ ...newModel, enabled: checked })}
                   />
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>
-                  <Button onClick={handleSubmit}>{editingPricingId ? t('common.save') : t('common.create')}</Button>
+                  <Button onClick={handleSubmit}>{editingModelId ? t('common.save') : t('common.create')}</Button>
                 </DialogFooter>
               </div>
             </DialogContent>
@@ -325,7 +314,7 @@ export function PricingPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('pricing.title')}</CardTitle>
+          <CardTitle>{t('modelManagement.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -334,41 +323,41 @@ export function PricingPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('pricing.channel')}</TableHead>
-                  <TableHead>{t('pricing.modelName')}</TableHead>
-                  <TableHead>{t('pricing.promptPrice')}</TableHead>
-                  <TableHead>{t('pricing.completionPrice')}</TableHead>
-                  <TableHead>{t('pricing.cachedPromptPrice')}</TableHead>
-                  <TableHead>{t('pricing.enabled')}</TableHead>
+                  <TableHead>{t('modelManagement.channel')}</TableHead>
+                  <TableHead>{t('modelManagement.modelName')}</TableHead>
+                  <TableHead>{t('modelManagement.promptPrice')}</TableHead>
+                  <TableHead>{t('modelManagement.completionPrice')}</TableHead>
+                  <TableHead>{t('modelManagement.cachedPromptPrice')}</TableHead>
+                  <TableHead>{t('modelManagement.enabled')}</TableHead>
                   <TableHead>{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pricings.map((pricing) => (
-                  <TableRow key={pricing.id}>
+                {models.map((model) => (
+                  <TableRow key={model.id}>
                     <TableCell>
                       <Badge variant="outline">
-                        {getChannelName(pricing.channel_id)}
+                        {getChannelName(model.channel_id)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono">{pricing.model_name}</TableCell>
-                    <TableCell>${pricing.prompt_price}/{formatUnit(pricing.prompt_unit)}</TableCell>
-                    <TableCell>${pricing.completion_price}/{formatUnit(pricing.completion_unit)}</TableCell>
-                    <TableCell>${pricing.cached_prompt_price}/{formatUnit(pricing.prompt_unit)}</TableCell>
+                    <TableCell className="font-mono">{model.model_name}</TableCell>
+                    <TableCell>${model.prompt_price}/{formatUnit(model.prompt_unit)}</TableCell>
+                    <TableCell>${model.completion_price}/{formatUnit(model.completion_unit)}</TableCell>
+                    <TableCell>${model.cached_prompt_price}/{formatUnit(model.prompt_unit)}</TableCell>
                     <TableCell>
                       <Switch
-                        checked={pricing.enabled}
-                        disabled={updatingPricingIds.has(pricing.id)}
-                        onCheckedChange={(checked) => handleToggleEnabled(pricing, checked)}
-                        aria-label={t('pricing.enabled')}
+                        checked={model.enabled}
+                        disabled={updatingModelIds.has(model.id)}
+                        onCheckedChange={(checked) => handleToggleEnabled(model, checked)}
+                        aria-label={t('modelManagement.enabled')}
                       />
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleEdit(pricing)}>
+                        <Button size="sm" variant="outline" onClick={() => handleEdit(model)}>
                           {t('common.edit')}
                         </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDelete(pricing.id)}>
+                        <Button size="sm" variant="destructive" onClick={() => handleDelete(model.id)}>
                           {t('common.delete')}
                         </Button>
                       </div>

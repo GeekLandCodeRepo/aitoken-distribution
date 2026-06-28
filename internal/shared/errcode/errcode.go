@@ -87,14 +87,14 @@ var (
 	ErrChanInUse        = &AppError{Code: 500404, Message: "channel in use, cannot delete", HTTP: 409}
 	ErrBatchLimit       = &AppError{Code: 500405, Message: "batch limit exceeded (max 100)", HTTP: 400}
 
-	// Pricing 60xxxx
+	// Model management 60xxxx
 	ErrModelRequired            = &AppError{Code: 600101, Message: "model name required", HTTP: 400}
 	ErrInvalidChanType          = &AppError{Code: 600102, Message: "invalid channel type", HTTP: 400}
 	ErrInvalidPromptPrice       = &AppError{Code: 600103, Message: "invalid prompt price", HTTP: 400}
 	ErrInvalidCompPrice         = &AppError{Code: 600104, Message: "invalid completion price", HTTP: 400}
 	ErrInvalidCachedPromptPrice = &AppError{Code: 600105, Message: "invalid cached prompt price", HTTP: 400}
-	ErrPricingNotFound          = &AppError{Code: 600301, Message: "pricing not found", HTTP: 404}
-	ErrPricingExists            = &AppError{Code: 600302, Message: "pricing already exists", HTTP: 409}
+	ErrModelNotFound            = &AppError{Code: 600301, Message: "model not found", HTTP: 404}
+	ErrModelExists              = &AppError{Code: 600302, Message: "model already exists", HTTP: 409}
 	ErrSyncFailed               = &AppError{Code: 600401, Message: "sync failed, no channels available", HTTP: 400}
 
 	// Billing 70xxxx

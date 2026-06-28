@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type Pricing struct {
+type Model struct {
 	ID                string    `json:"id" xorm:"'id' uuid pk notnull"`
 	ChannelID         string    `json:"channel_id" xorm:"uuid channel_id notnull unique(channel_model)"`
 	ModelName         string    `json:"model_name" xorm:"varchar(128) notnull unique(channel_model)"`
@@ -21,18 +21,18 @@ type Pricing struct {
 	UpdatedAt         time.Time `json:"updated_at" xorm:"updated"`
 }
 
-func (Pricing) TableName() string {
-	return "model_pricing"
+func (Model) TableName() string {
+	return "models"
 }
 
-type PricingRepository interface {
-	Create(pricing *Pricing) error
-	GetByID(id string) (*Pricing, error)
-	GetByChannelAndModel(channelID string, modelName string) (*Pricing, error)
-	Update(pricing *Pricing) error
+type ModelRepository interface {
+	Create(model *Model) error
+	GetByID(id string) (*Model, error)
+	GetByChannelAndModel(channelID string, modelName string) (*Model, error)
+	Update(model *Model) error
 	UpdateEnabled(id string, enabled bool) error
 	Delete(id string) error
 	DeleteByChannelAndModel(channelID string, modelName string) error
 	DeleteByChannel(channelID string) error
-	List(channelID *string, enabled *bool, search string) ([]*Pricing, error)
+	List(channelID *string, enabled *bool, search string) ([]*Model, error)
 }

@@ -73,18 +73,18 @@ COMMENT ON COLUMN channels.type IS '渠道类型: 1=OpenAI, 2=Claude, 3=Gemini, 
 COMMENT ON COLUMN channels.priority IS '优先级，越大越优先';
 COMMENT ON COLUMN channels.weight IS '同优先级内的权重';
 
--- 4. 模型定价表
-CREATE TABLE IF NOT EXISTS model_pricing (
+-- 4. 模型管理表
+CREATE TABLE IF NOT EXISTS models (
     id                  VARCHAR(36) PRIMARY KEY,
     channel_id          VARCHAR(36) NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
     model_name          VARCHAR(128) NOT NULL,
     prompt_price        DECIMAL(16,8) NOT NULL,
     prompt_unit         INT NOT NULL DEFAULT 1000000,
+    cached_prompt_price DECIMAL(16,8) NOT NULL DEFAULT 0,
     completion_price    DECIMAL(16,8) NOT NULL,
     completion_unit     INT NOT NULL DEFAULT 1000000,
     image_price         DECIMAL(16,8),
     audio_price         DECIMAL(16,8),
-    cache_ratio         DECIMAL(4,2) DEFAULT 0.5,
     currency            VARCHAR(3) DEFAULT 'USD',
     enabled             BOOLEAN DEFAULT TRUE,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
@@ -92,10 +92,10 @@ CREATE TABLE IF NOT EXISTS model_pricing (
     UNIQUE(channel_id, model_name)
 );
 
-COMMENT ON TABLE model_pricing IS '模型定价表';
-COMMENT ON COLUMN model_pricing.prompt_price IS '输入价格（原始数字）';
-COMMENT ON COLUMN model_pricing.prompt_unit IS '输入价格对应的token数量';
-COMMENT ON COLUMN model_pricing.cache_ratio IS '缓存命中时的折扣比例';
+COMMENT ON TABLE models IS '模型管理表';
+COMMENT ON COLUMN models.prompt_price IS '输入价格（原始数字）';
+COMMENT ON COLUMN models.cached_prompt_price IS '缓存输入价格（原始数字）';
+COMMENT ON COLUMN models.prompt_unit IS '输入价格对应的token数量';
 
 -- 5. 请求日志表
 CREATE TABLE IF NOT EXISTS request_logs (
@@ -169,7 +169,7 @@ CREATE INDEX IF NOT EXISTS idx_request_logs_channel ON request_logs(channel_id, 
 CREATE INDEX IF NOT EXISTS idx_request_logs_model ON request_logs(model, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_channels_status ON channels(status, priority DESC, weight DESC);
-CREATE INDEX IF NOT EXISTS idx_pricing_channel_model ON model_pricing(channel_id, model_name);
+CREATE INDEX IF NOT EXISTS idx_models_channel_model ON models(channel_id, model_name);
 CREATE INDEX IF NOT EXISTS idx_redemption_codes ON redemption_codes(code);
 
 -- 初始管理员用户

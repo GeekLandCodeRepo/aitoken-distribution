@@ -11,9 +11,10 @@ import { SettingsPage } from './pages/SettingsPage'
 import { UsersPage } from './pages/UsersPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { ChannelsPage } from './pages/ChannelsPage'
-import { PricingPage } from './pages/PricingPage'
+import { ModelManagementPage } from './pages/ModelManagementPage'
 import { RedeemCodesPage } from './pages/RedeemCodesPage'
 import { LogsPage } from './pages/LogsPage'
+import { SiteSettingsPage } from './pages/SiteSettingsPage'
 
 function App() {
   return (
@@ -36,9 +37,10 @@ function App() {
           <Route path="admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="admin/users" element={<UsersPage />} />
           <Route path="admin/channels" element={<ChannelsPage />} />
-          <Route path="admin/pricing" element={<PricingPage />} />
+          <Route path="admin/models" element={<ModelManagementPage />} />
           <Route path="admin/redeem-codes" element={<RedeemCodesPage />} />
           <Route path="admin/logs" element={<LogsPage />} />
+          <Route path="admin/settings" element={<SiteSettingsPage />} />
         </Route>
       </Routes>
       <Toaster position="top-right" richColors />

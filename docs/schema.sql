@@ -75,12 +75,12 @@ COMMENT ON COLUMN channels.type IS '渠道类型: 1=OpenAI, 2=Claude, 3=Gemini, 
 COMMENT ON COLUMN channels.priority IS '优先级，越大越优先';
 COMMENT ON COLUMN channels.weight IS '同优先级内的权重';
 
--- 4. 模型定价表
+-- 4. 模型管理表
 -- 支持不同的计费单位（每1K、每1M、每10M、每200M等）
-CREATE TABLE model_pricing (
-    id                  VARCHAR(36) PRIMARY KEY,
+CREATE TABLE models (
+    id                  UUID PRIMARY KEY,
+    channel_id          UUID NOT NULL REFERENCES channels(id),
     model_name          VARCHAR(128) NOT NULL,
-    channel_type        SMALLINT NOT NULL,           -- 对应 channel.type
     
     -- 输入价格
     prompt_price        DECIMAL(16,8) NOT NULL,      -- 原始价格数字
@@ -94,8 +94,8 @@ CREATE TABLE model_pricing (
     image_price         DECIMAL(16,8),               -- 每张图片
     audio_price         DECIMAL(16,8),               -- 每分钟音频
     
-    -- 缓存折扣
-    cache_ratio         DECIMAL(4,2) DEFAULT 0.5,    -- 缓存命中时的折扣
+    -- 缓存命中输入价格
+    cached_prompt_price DECIMAL(16,8) DEFAULT 0,
     
     -- 货币
     currency            VARCHAR(3) DEFAULT 'USD',    -- USD, CNY等
@@ -104,13 +104,13 @@ CREATE TABLE model_pricing (
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW(),
     
-    UNIQUE(model_name, channel_type)
+    UNIQUE(channel_id, model_name)
 );
 
-COMMENT ON TABLE model_pricing IS '模型定价表';
-COMMENT ON COLUMN model_pricing.prompt_price IS '输入价格（原始数字）';
-COMMENT ON COLUMN model_pricing.prompt_unit IS '输入价格对应的token数量';
-COMMENT ON COLUMN model_pricing.cache_ratio IS '缓存命中时的折扣比例';
+COMMENT ON TABLE models IS '模型管理表';
+COMMENT ON COLUMN models.prompt_price IS '输入价格（原始数字）';
+COMMENT ON COLUMN models.prompt_unit IS '输入价格对应的token数量';
+COMMENT ON COLUMN models.cached_prompt_price IS '缓存命中输入价格';
 
 -- 5. 请求日志表
 CREATE TABLE request_logs (
@@ -184,5 +184,5 @@ CREATE INDEX idx_request_logs_channel ON request_logs(channel_id, created_at DES
 CREATE INDEX idx_request_logs_model ON request_logs(model, created_at DESC);
 CREATE INDEX idx_transactions_user ON transactions(user_id, created_at DESC);
 CREATE INDEX idx_channels_status ON channels(status, priority DESC, weight DESC);
-CREATE INDEX idx_pricing_model ON model_pricing(model_name, channel_type);
+CREATE INDEX idx_models_model ON models(model_name, channel_id);
 CREATE INDEX idx_redemption_codes ON redemption_codes(code);

@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	channelDomain "llm-gateway/internal/channel/domain"
-	pricingDomain "llm-gateway/internal/pricing/domain"
+	modelDomain "llm-gateway/internal/model/domain"
 	"llm-gateway/internal/relay/adaptor"
 	"llm-gateway/internal/relay/usecase"
 	"llm-gateway/internal/shared/errcode"
@@ -17,12 +17,12 @@ import (
 
 type RelayHandler struct {
 	relayUsecase *usecase.RelayUsecase
-	pricingRepo  pricingDomain.PricingRepository
+	modelRepo    modelDomain.ModelRepository
 	channelRepo  channelDomain.ChannelRepository
 }
 
-func NewRelayHandler(relayUsecase *usecase.RelayUsecase, pricingRepo pricingDomain.PricingRepository, channelRepo channelDomain.ChannelRepository) *RelayHandler {
-	return &RelayHandler{relayUsecase: relayUsecase, pricingRepo: pricingRepo, channelRepo: channelRepo}
+func NewRelayHandler(relayUsecase *usecase.RelayUsecase, modelRepo modelDomain.ModelRepository, channelRepo channelDomain.ChannelRepository) *RelayHandler {
+	return &RelayHandler{relayUsecase: relayUsecase, modelRepo: modelRepo, channelRepo: channelRepo}
 }
 
 // ChatCompletion 聊天补全接口
@@ -126,24 +126,24 @@ func (h *RelayHandler) GetModels(w http.ResponseWriter, r *http.Request) {
 	seen := make(map[string]struct{})
 	models := make([]map[string]interface{}, 0)
 	for _, channel := range channels {
-		pricings, err := h.pricingRepo.List(&channel.ID, &enabled, "")
+		channelModels, err := h.modelRepo.List(&channel.ID, &enabled, "")
 		if err != nil {
 			resp.OpenAIError(w, errcode.ErrDatabase)
 			return
 		}
-		for _, pricing := range pricings {
-			if pricing.ModelName == "" {
+		for _, model := range channelModels {
+			if model.ModelName == "" {
 				continue
 			}
-			if _, exists := seen[pricing.ModelName]; exists {
+			if _, exists := seen[model.ModelName]; exists {
 				continue
 			}
-			seen[pricing.ModelName] = struct{}{}
+			seen[model.ModelName] = struct{}{}
 
 			models = append(models, map[string]interface{}{
-				"id":       pricing.ModelName,
+				"id":       model.ModelName,
 				"object":   "model",
-				"created":  pricing.CreatedAt.Unix(),
+				"created":  model.CreatedAt.Unix(),
 				"owned_by": "system",
 			})
 		}

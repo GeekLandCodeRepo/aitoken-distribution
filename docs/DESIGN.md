@@ -267,7 +267,7 @@ func (s *BillingService) Refund(ctx context.Context, userID uuid.UUID, amount in
 ├── channel_list:{model}:{group}  # 可用渠道列表（TTL: 1min）
 ├── channel_health:{channel_id}   # 渠道健康状态（TTL: 30s）
 ├── rate_limit:{key_id}:{window}  # 限流计数器（TTL: 1min）
-└── pricing:{model}               # 模型定价（TTL: 10min）
+└── models:{model}                # 模型配置（TTL: 10min）
 ```
 
 ## 3. 数据库设计
@@ -276,7 +276,7 @@ func (s *BillingService) Refund(ctx context.Context, userID uuid.UUID, amount in
 - users - 用户表
 - api_keys - API Key表
 - channels - 供应商渠道表
-- model_pricing - 模型定价表
+- models - 模型管理表
 - request_logs - 请求日志表
 - transactions - 交易记录表
 - redemption_codes - 充值码表
@@ -285,7 +285,7 @@ func (s *BillingService) Refund(ctx context.Context, userID uuid.UUID, amount in
 ### 3.2 主键设计
 所有表使用UUIDv7作为主键，具有时间有序性和全局唯一性。
 
-### 3.3 模型定价设计
+### 3.3 模型管理设计
 
 各家供应商定价单位不同，系统采用统一存储方案：
 
@@ -313,7 +313,7 @@ func (s *BillingService) Refund(ctx context.Context, userID uuid.UUID, amount in
 - 用户模块 - 用户管理、手动充值
 - API Key模块 - Key的CRUD和配置
 - 渠道模块 - 供应商渠道管理
-- 定价模块 - 模型定价配置
+- 模型管理模块 - 模型配置和价格配置
 - 计费模块 - 充值码和交易记录
 - 代理模块 - OpenAI兼容接口转发
 - 用量模块 - 统计和日志查询

@@ -15,7 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -24,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { userApi, type InviteCode, type InviteSettings, type User, type UserChannelOption } from '@/api'
+import { userApi, type User, type UserChannelOption } from '@/api'
 import { Checkbox } from '@/components/ui/checkbox'
 
 export function UsersPage() {
@@ -38,48 +37,15 @@ export function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null)
   const [newUser, setNewUser] = useState({ email: '', username: '', password: '', role: 1, balance: '' })
-  const [inviteSettings, setInviteSettings] = useState<InviteSettings>({
-    require_invite_register: false,
-    user_invite_enabled: false,
-    reward_amount: 0,
-    new_user_bonus_amount: 0,
-  })
-  const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([])
-  const [generatedInviteCode, setGeneratedInviteCode] = useState<InviteCode | null>(null)
   const [channelsOpen, setChannelsOpen] = useState(false)
   const [channelsUser, setChannelsUser] = useState<User | null>(null)
   const [channelOptions, setChannelOptions] = useState<UserChannelOption[]>([])
   const [channelsLoading, setChannelsLoading] = useState(false)
   const [channelsSaving, setChannelsSaving] = useState(false)
-  const [templateOpen, setTemplateOpen] = useState(false)
-  const [templateOptions, setTemplateOptions] = useState<UserChannelOption[]>([])
-  const [templateLoading, setTemplateLoading] = useState(false)
-  const [templateSaving, setTemplateSaving] = useState(false)
-  const [templateApplying, setTemplateApplying] = useState(false)
-  const [applyConfirmOpen, setApplyConfirmOpen] = useState(false)
 
   useEffect(() => {
     fetchUsers()
-    fetchInviteData()
   }, [])
-
-  const fetchInviteData = async () => {
-    try {
-      const [settings, codes] = await Promise.all([
-        userApi.inviteSettings(),
-        userApi.listInviteCodes({ page: 1, size: 10 }),
-      ])
-      setInviteSettings({
-        require_invite_register: settings.require_invite_register ?? false,
-        user_invite_enabled: settings.user_invite_enabled ?? false,
-        reward_amount: settings.reward_amount ?? 0,
-        new_user_bonus_amount: settings.new_user_bonus_amount ?? 0,
-      })
-      setInviteCodes(codes.items || [])
-    } catch (err) {
-      console.error('Failed to fetch invite data:', err)
-    }
-  }
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -158,37 +124,6 @@ export function UsersPage() {
     }
   }
 
-  const saveInviteSettings = async (settings: InviteSettings) => {
-    try {
-      const updated = await userApi.updateInviteSettings(settings)
-      setInviteSettings(updated)
-      toast.success(t('users.inviteSettingsSaved'))
-    } catch (err: any) {
-      toast.error(err.message || t('users.inviteSettingsFailed'))
-    }
-  }
-
-  const createInviteCode = async () => {
-    try {
-      const code = await userApi.createInviteCode({
-        reward_amount: inviteSettings.reward_amount,
-        new_user_bonus: inviteSettings.new_user_bonus_amount,
-      })
-      setGeneratedInviteCode(code)
-      toast.success(t('users.createInviteSuccess'))
-      fetchInviteData()
-    } catch (err: any) {
-      toast.error(err.message || t('users.createInviteFailed'))
-    }
-  }
-
-  const copyInviteCode = async () => {
-    if (!generatedInviteCode) return
-
-    await navigator.clipboard.writeText(generatedInviteCode.code)
-    toast.success(t('users.inviteCopied'))
-  }
-
   const openChannelsDialog = async (user: User) => {
     setChannelsUser(user)
     setChannelsOpen(true)
@@ -226,54 +161,6 @@ export function UsersPage() {
     }
   }
 
-  const openTemplateDialog = async () => {
-    setTemplateOpen(true)
-    setTemplateLoading(true)
-    try {
-      const data = await userApi.getChannelTemplate()
-      setTemplateOptions(data || [])
-    } catch (err: any) {
-      toast.error(err.message || t('users.channelTemplateFailed'))
-      setTemplateOpen(false)
-    } finally {
-      setTemplateLoading(false)
-    }
-  }
-
-  const toggleTemplateChannel = (channelId: string) => {
-    setTemplateOptions((prev) =>
-      prev.map((ch) => (ch.id === channelId ? { ...ch, allowed: !ch.allowed } : ch))
-    )
-  }
-
-  const handleSaveTemplate = async () => {
-    setTemplateSaving(true)
-    try {
-      const allowedIds = templateOptions.filter((ch) => ch.allowed).map((ch) => ch.id)
-      const data = await userApi.updateChannelTemplate(allowedIds)
-      setTemplateOptions(data || [])
-      toast.success(t('users.channelTemplateSaved'))
-    } catch (err: any) {
-      toast.error(err.message || t('users.channelTemplateFailed'))
-    } finally {
-      setTemplateSaving(false)
-    }
-  }
-
-  const handleApplyTemplateToAll = async () => {
-    setApplyConfirmOpen(false)
-    setTemplateApplying(true)
-    try {
-      const result = await userApi.applyChannelTemplateToAllUsers()
-      const detail = result?.affected != null ? ` (${result.affected})` : ''
-      toast.success(t('users.applyToAllSuccess', { detail }))
-    } catch (err: any) {
-      toast.error(err.message || t('users.applyToAllFailed'))
-    } finally {
-      setTemplateApplying(false)
-    }
-  }
-
   const formatUSD = (value?: number) => `$${((value || 0) / 1000000).toFixed(2)}`
 
   const getTotalQuota = (user: User) => (user.balance || 0) + (user.used_quota || 0)
@@ -291,67 +178,9 @@ export function UsersPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>{t('users.inviteSettings')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid max-w-4xl gap-x-6 gap-y-3 md:grid-cols-[210px_340px_128px]">
-            <div className="flex h-10 items-center justify-between gap-4">
-              <div className="text-sm font-medium">{t('users.userInviteEnabled')}</div>
-              <Switch
-                checked={inviteSettings.user_invite_enabled}
-                onCheckedChange={(checked) => saveInviteSettings({ ...inviteSettings, user_invite_enabled: checked })}
-              />
-            </div>
-            <div className="flex h-10 items-center gap-3">
-              <Label className="w-40 shrink-0 text-sm">{t('users.inviteRewardAmount')}</Label>
-              <Input
-                className="h-9 w-32"
-                type="number"
-                step="0.01"
-                value={inviteSettings.reward_amount / 1000000}
-                onChange={(e) => setInviteSettings({ ...inviteSettings, reward_amount: Math.floor((parseFloat(e.target.value) || 0) * 1000000) })}
-              />
-            </div>
-            <Button className="h-9 w-28" onClick={createInviteCode}>{t('users.createInviteCode')}</Button>
-
-            <div className="flex h-10 items-center justify-between gap-4">
-              <div className="text-sm font-medium">{t('users.requireInviteRegister')}</div>
-              <Switch
-                checked={inviteSettings.require_invite_register}
-                onCheckedChange={(checked) => saveInviteSettings({ ...inviteSettings, require_invite_register: checked })}
-              />
-            </div>
-            <div className="flex h-10 items-center gap-3">
-              <Label className="w-40 shrink-0 text-sm">{t('users.newUserBonusAmount')}</Label>
-              <Input
-                className="h-9 w-32"
-                type="number"
-                step="0.01"
-                value={inviteSettings.new_user_bonus_amount / 1000000}
-                onChange={(e) => setInviteSettings({ ...inviteSettings, new_user_bonus_amount: Math.floor((parseFloat(e.target.value) || 0) * 1000000) })}
-              />
-            </div>
-            <Button className="h-9 w-28" variant="outline" onClick={() => saveInviteSettings(inviteSettings)}>{t('common.save')}</Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {inviteCodes.map((code) => (
-              <div key={code.id} className="flex items-center gap-2 rounded-md border px-2 py-1 text-xs">
-                <span className="font-mono">{code.code}</span>
-                <Badge variant="outline">{t('users.inviteRewardShort')}: {formatUSD(code.reward_amount)}</Badge>
-                <Badge variant="outline">{t('users.newUserBonusShort')}: {formatUSD(code.new_user_bonus)}</Badge>
-                {code.used_at && <Badge variant="secondary">{t('users.inviteUsed')}</Badge>}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t('users.list')}</CardTitle>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={openTemplateDialog}>{t('users.channelTemplate')}</Button>
             <Button onClick={() => setCreateOpen(true)}>{t('users.createUser')}</Button>
           </div>
         </CardHeader>
@@ -620,149 +449,6 @@ export function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={templateOpen} onOpenChange={(open) => { if (!open) { setTemplateOpen(false); setTemplateOptions([]) } }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{t('users.channelTemplate')}</DialogTitle>
-            <DialogDescription>{t('users.channelTemplateDesc')}</DialogDescription>
-          </DialogHeader>
-
-          {templateLoading ? (
-            <div className="py-8 text-center text-muted-foreground">{t('common.loading')}</div>
-          ) : (
-            <div className="flex-1 overflow-y-auto -mx-6 px-6 space-y-2">
-              {templateOptions.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">{t('common.noData')}</div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between py-2 sticky top-0 bg-background z-10 border-b mb-2">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={templateOptions.length > 0 && templateOptions.every((ch) => ch.allowed)}
-                        onCheckedChange={(checked) => {
-                          setTemplateOptions((prev) => prev.map((ch) => ({ ...ch, allowed: !!checked })))
-                        }}
-                      />
-                      <span className="text-sm font-medium">
-                        {templateOptions.filter((ch) => ch.allowed).length} / {templateOptions.length}
-                      </span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {t('users.allowedCount', { count: templateOptions.filter((ch) => ch.allowed).length })}
-                    </span>
-                  </div>
-
-                  {templateOptions.map((ch) => (
-                    <label
-                      key={ch.id}
-                      className="flex items-start gap-3 rounded-md border p-3 cursor-pointer hover:bg-accent/50 transition-colors"
-                    >
-                      <Checkbox
-                        checked={ch.allowed}
-                        onCheckedChange={() => toggleTemplateChannel(ch.id)}
-                        className="mt-0.5"
-                      />
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{ch.name}</span>
-                          <Badge variant={ch.status === 1 ? 'default' : 'destructive'} className="text-xs">
-                            {ch.status === 1 ? t('common.active') : t('common.disabled')}
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground truncate">{ch.base_url}</div>
-                        {ch.models.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {ch.models.slice(0, 8).map((model) => (
-                              <Badge key={model} variant="secondary" className="text-xs font-mono">
-                                {model}
-                              </Badge>
-                            ))}
-                            {ch.models.length > 8 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{ch.models.length - 8}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </label>
-                  ))}
-                </>
-              )}
-
-              {templateOptions.length > 0 && templateOptions.every((ch) => !ch.allowed) && (
-                <div className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
-                  <span className="text-amber-600 dark:text-amber-400 font-medium shrink-0">⚠</span>
-                  <div>
-                    <div className="font-medium text-amber-700 dark:text-amber-300">{t('users.userChannelsEmpty')}</div>
-                    <div className="text-amber-600/80 dark:text-amber-400/70 text-xs mt-0.5">{t('users.userChannelsEmptyHint')}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="destructive"
-                onClick={() => setApplyConfirmOpen(true)}
-                disabled={templateLoading || templateSaving || templateApplying || templateOptions.length === 0}
-              >
-                {templateApplying ? t('common.loading') : t('users.applyToAll')}
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => { setTemplateOpen(false); setTemplateOptions([]) }}>
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={handleSaveTemplate} disabled={templateSaving || templateLoading}>
-                {templateSaving ? t('common.loading') : t('common.save')}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={applyConfirmOpen} onOpenChange={setApplyConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-destructive">{t('users.applyToAll')}</DialogTitle>
-            <DialogDescription className="leading-relaxed">
-              {t('users.applyToAllConfirm')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApplyConfirmOpen(false)}>{t('common.cancel')}</Button>
-            <Button variant="destructive" onClick={handleApplyTemplateToAll}>
-              {t('common.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!generatedInviteCode} onOpenChange={(open) => !open && setGeneratedInviteCode(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('users.inviteCodeGenerated')}</DialogTitle>
-            <DialogDescription>{t('users.inviteCodeGeneratedDesc')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Label>{t('auth.inviteCode')}</Label>
-            <Input readOnly value={generatedInviteCode?.code || ''} className="font-mono" />
-            {generatedInviteCode && (
-              <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-                <div>{t('users.inviteRewardAmount')}: {formatUSD(generatedInviteCode.reward_amount)}</div>
-                <div>{t('users.newUserBonusAmount')}: {formatUSD(generatedInviteCode.new_user_bonus)}</div>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setGeneratedInviteCode(null)}>{t('common.close')}</Button>
-            <Button onClick={copyInviteCode}>{t('common.copy')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

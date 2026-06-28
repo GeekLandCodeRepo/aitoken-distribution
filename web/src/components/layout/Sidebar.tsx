@@ -43,9 +43,10 @@ export function Sidebar({ user }: SidebarProps) {
     { path: '/admin/dashboard', label: t('sidebar.adminDashboard'), icon: '📊' },
     { path: '/admin/users', label: t('sidebar.users'), icon: '👥' },
     { path: '/admin/channels', label: t('sidebar.channels'), icon: '🔗' },
-    { path: '/admin/pricing', label: t('sidebar.pricing'), icon: '💰' },
+    { path: '/admin/models', label: t('sidebar.modelManagement'), icon: '🧠' },
     { path: '/admin/redeem-codes', label: t('sidebar.redeemCodes'), icon: '🎟️' },
     { path: '/admin/logs', label: t('sidebar.logs'), icon: '📝' },
+    { path: '/admin/settings', label: t('sidebar.siteSettings'), icon: '⚙️' },
   ]
 
   return (

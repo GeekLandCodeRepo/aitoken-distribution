@@ -10,17 +10,17 @@ import (
 	"llm-gateway/internal/shared/uuid"
 
 	"llm-gateway/internal/billing/domain"
-	pricingDomain "llm-gateway/internal/pricing/domain"
+	modelDomain "llm-gateway/internal/model/domain"
 	"llm-gateway/internal/shared/errcode"
 )
 
 type BillingUsecase struct {
-	userRepo    domain.UserRepository
-	keyRepo     domain.ApiKeyRepository
-	txRepo      domain.TransactionRepository
-	logRepo     domain.RequestLogRepository
-	pricingRepo pricingDomain.PricingRepository
-	redis       *redis.Client
+	userRepo  domain.UserRepository
+	keyRepo   domain.ApiKeyRepository
+	txRepo    domain.TransactionRepository
+	logRepo   domain.RequestLogRepository
+	modelRepo modelDomain.ModelRepository
+	redis     *redis.Client
 }
 
 func NewBillingUsecase(
@@ -28,16 +28,16 @@ func NewBillingUsecase(
 	keyRepo domain.ApiKeyRepository,
 	txRepo domain.TransactionRepository,
 	logRepo domain.RequestLogRepository,
-	pricingRepo pricingDomain.PricingRepository,
+	modelRepo modelDomain.ModelRepository,
 	redis *redis.Client,
 ) *BillingUsecase {
 	return &BillingUsecase{
-		userRepo:    userRepo,
-		keyRepo:     keyRepo,
-		txRepo:      txRepo,
-		logRepo:     logRepo,
-		pricingRepo: pricingRepo,
-		redis:       redis,
+		userRepo:  userRepo,
+		keyRepo:   keyRepo,
+		txRepo:    txRepo,
+		logRepo:   logRepo,
+		modelRepo: modelRepo,
+		redis:     redis,
 	}
 }
 
@@ -80,17 +80,17 @@ type PostConsumeParams struct {
 
 // PreConsume 预扣费
 func (uc *BillingUsecase) PreConsume(ctx context.Context, params PreConsumeParams) (int64, error) {
-	// 查找定价
-	pricing, err := uc.pricingRepo.GetByChannelAndModel(params.ChannelID, params.Model)
+	// 查找模型配置
+	model, err := uc.modelRepo.GetByChannelAndModel(params.ChannelID, params.Model)
 	if err != nil {
 		return 0, errcode.ErrInternal
 	}
-	if pricing == nil {
+	if model == nil {
 		return 0, errcode.ErrInvalidBody // 没有定价配置
 	}
 
 	// 估算成本：prompt_price / prompt_unit * prompt_tokens
-	estimatedCost := int64(math.Ceil(pricing.PromptPrice / float64(pricing.PromptUnit) * float64(params.PromptTokens) * 1000000))
+	estimatedCost := int64(math.Ceil(model.PromptPrice / float64(model.PromptUnit) * float64(params.PromptTokens) * 1000000))
 
 	// 检查用户余额
 	balanceKey := fmt.Sprintf("user_balance:%s", params.UserID)
@@ -147,9 +147,9 @@ func (uc *BillingUsecase) PreConsume(ctx context.Context, params PreConsumeParam
 
 // PostConsume 结算，返回本次请求的实际扣费金额
 func (uc *BillingUsecase) PostConsume(ctx context.Context, params PostConsumeParams) (int64, error) {
-	// 查找定价
-	pricing, err := uc.pricingRepo.GetByChannelAndModel(params.ChannelID, params.Model)
-	if err != nil || pricing == nil {
+	// 查找模型配置
+	model, err := uc.modelRepo.GetByChannelAndModel(params.ChannelID, params.Model)
+	if err != nil || model == nil {
 		// 没有定价时用预扣费金额
 		return uc.finalize(ctx, params, params.PreConsumed)
 	}
@@ -163,11 +163,11 @@ func (uc *BillingUsecase) PostConsume(ctx context.Context, params PostConsumePar
 		cacheTokens = params.PromptTokens
 	}
 	normalPromptTokens := params.PromptTokens - cacheTokens
-	promptCost := pricing.PromptPrice / float64(pricing.PromptUnit) * float64(normalPromptTokens) * 1000000
+	promptCost := model.PromptPrice / float64(model.PromptUnit) * float64(normalPromptTokens) * 1000000
 	if cacheTokens > 0 {
-		promptCost += pricing.CachedPromptPrice / float64(pricing.PromptUnit) * float64(cacheTokens) * 1000000
+		promptCost += model.CachedPromptPrice / float64(model.PromptUnit) * float64(cacheTokens) * 1000000
 	}
-	completionCost := pricing.CompletionPrice / float64(pricing.CompletionUnit) * float64(params.CompletionTokens) * 1000000
+	completionCost := model.CompletionPrice / float64(model.CompletionUnit) * float64(params.CompletionTokens) * 1000000
 	actualCost := int64(math.Ceil(promptCost + completionCost))
 
 	return uc.finalize(ctx, params, actualCost)

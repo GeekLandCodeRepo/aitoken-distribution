@@ -82,7 +82,7 @@ GET /api/v1/users?page=1&size=20&sort=created_at&order=desc
 | 用户 | [user.md](./user.md) | 用户管理、手动充值 |
 | API Key | [key.md](./key.md) | Key的CRUD和配置 |
 | 渠道 | [channel.md](./channel.md) | 供应商渠道管理 |
-| 定价 | [pricing.md](./pricing.md) | 模型定价配置 |
+| 模型管理 | [models.md](./models.md) | 模型配置和价格配置 |
 | 计费 | [billing.md](./billing.md) | 充值码和交易记录 |
 | 代理 | [relay.md](./relay.md) | OpenAI兼容接口转发 |
 | 用量 | [usage.md](./usage.md) | 统计和日志查询 |
