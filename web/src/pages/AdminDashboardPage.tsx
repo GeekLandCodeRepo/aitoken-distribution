@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { enUS, zhCN } from 'date-fns/locale'
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -13,7 +13,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { usageApi, type ModelUsageStats, type UserUsageStats } from '@/api/usage'
+import { usageApi, type ModelUsageStats, type TokenTrendPoint, type UserUsageStats } from '@/api/usage'
 
 interface ChartRow {
   label: string
@@ -31,6 +31,9 @@ export function AdminDashboardPage() {
   const [topUsers, setTopUsers] = useState<UserUsageStats[]>([])
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [dailyStats, setDailyStats] = useState({ requests: 0, tokens: 0, cost: 0 })
+  const [trendGranularity, setTrendGranularity] = useState<'hour' | 'day'>('hour')
+  const [tokenTrend, setTokenTrend] = useState<TokenTrendPoint[]>([])
+  const [trendLoading, setTrendLoading] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -40,6 +43,10 @@ export function AdminDashboardPage() {
   useEffect(() => {
     fetchDailyStats(selectedDate)
   }, [selectedDate])
+
+  useEffect(() => {
+    fetchTokenTrend()
+  }, [selectedDate, trendGranularity])
 
   const fetchDashboard = async () => {
     setLoading(true)
@@ -91,11 +98,36 @@ export function AdminDashboardPage() {
     }
   }
 
+  const fetchTokenTrend = async () => {
+    setTrendLoading(true)
+    try {
+      const data = await usageApi.adminTokenTrend(
+        trendGranularity === 'hour'
+          ? { granularity: 'hour', date: formatDate(selectedDate) }
+          : { granularity: 'day', days: 14 },
+      )
+      setTokenTrend(data || [])
+    } catch (err) {
+      console.error('Failed to fetch token trend:', err)
+      setTokenTrend([])
+    } finally {
+      setTrendLoading(false)
+    }
+  }
+
   const chartConfig = {
     percentage: {
       label: t('adminDashboard.usageRate'),
       color: 'var(--chart-1)',
     },
+  } satisfies ChartConfig
+
+  const tokenTrendConfig = {
+    tokens: { label: t('adminDashboard.totalTokens'), color: 'var(--chart-1)' },
+    prompt_tokens: { label: t('adminDashboard.promptTokens'), color: 'var(--chart-2)' },
+    completion_tokens: { label: t('adminDashboard.completionTokens'), color: 'var(--chart-3)' },
+    reasoning_tokens: { label: t('adminDashboard.reasoningTokens'), color: 'var(--chart-4)' },
+    cache_tokens: { label: t('adminDashboard.cacheTokens'), color: 'var(--chart-5)' },
   } satisfies ChartConfig
 
   const modelChartData: ChartRow[] = topModels.map((item) => ({
@@ -161,6 +193,36 @@ export function AdminDashboardPage() {
     )
   }
 
+  const renderTokenTrendChart = () => {
+    if (trendLoading) return <div>{t('common.loading')}</div>
+    if (tokenTrend.length === 0) return <div className="text-sm text-muted-foreground">{t('adminDashboard.noTrendData')}</div>
+
+    return (
+      <ChartContainer config={tokenTrendConfig} className="h-[360px] w-full">
+        <AreaChart accessibilityLayer data={tokenTrend} margin={{ left: 8, right: 24 }}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
+          <YAxis tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => formatTokenCount(Number(value))} />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formatter={(value, name) => {
+                  const key = String(name) as keyof typeof tokenTrendConfig
+                  return `${tokenTrendConfig[key]?.label || name}: ${formatTokenCount(Number(value))}`
+                }}
+              />
+            }
+          />
+          <Area type="monotone" dataKey="tokens" stroke="var(--color-tokens)" fill="var(--color-tokens)" fillOpacity={0.18} strokeWidth={2} />
+          <Area type="monotone" dataKey="prompt_tokens" stroke="var(--color-prompt_tokens)" fill="var(--color-prompt_tokens)" fillOpacity={0.08} strokeWidth={1.5} />
+          <Area type="monotone" dataKey="completion_tokens" stroke="var(--color-completion_tokens)" fill="var(--color-completion_tokens)" fillOpacity={0.08} strokeWidth={1.5} />
+          <Area type="monotone" dataKey="reasoning_tokens" stroke="var(--color-reasoning_tokens)" fill="var(--color-reasoning_tokens)" fillOpacity={0.05} strokeWidth={1.2} />
+          <Area type="monotone" dataKey="cache_tokens" stroke="var(--color-cache_tokens)" fill="var(--color-cache_tokens)" fillOpacity={0.05} strokeWidth={1.2} />
+        </AreaChart>
+      </ChartContainer>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">{t('adminDashboard.title')}</h2>
@@ -194,6 +256,29 @@ export function AdminDashboardPage() {
             </div>
           </div>
         </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle>{t('adminDashboard.tokenTrend')}</CardTitle>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={trendGranularity === 'hour' ? 'default' : 'outline'}
+              onClick={() => setTrendGranularity('hour')}
+            >
+              {t('adminDashboard.byHour')}
+            </Button>
+            <Button
+              size="sm"
+              variant={trendGranularity === 'day' ? 'default' : 'outline'}
+              onClick={() => setTrendGranularity('day')}
+            >
+              {t('adminDashboard.byDay')}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>{renderTokenTrendChart()}</CardContent>
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-2">

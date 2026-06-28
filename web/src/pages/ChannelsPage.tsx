@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,7 @@ export function ChannelsPage() {
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null)
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ channel: Channel; enabled: boolean } | null>(null)
   const [newChannel, setNewChannel] = useState<CreateChannelRequest>({
     name: '',
     type: 1,
@@ -143,12 +145,17 @@ export function ChannelsPage() {
     }
   }
 
-  const handleToggle = async (id: string) => {
+  const confirmStatusChange = async () => {
+    if (!pendingStatusChange) return
+    const { channel, enabled } = pendingStatusChange
     try {
-      await channelApi.toggle(id)
+      const updated = await channelApi.updateStatus(channel.id, enabled)
+      setChannels((items) => items.map((item) => item.id === channel.id ? updated : item))
       await fetchChannels()
     } catch (err) {
-      console.error('Failed to toggle channel:', err)
+      console.error('Failed to update channel status:', err)
+    } finally {
+      setPendingStatusChange(null)
     }
   }
 
@@ -323,9 +330,12 @@ export function ChannelsPage() {
                     <TableCell>${channel.balance?.toFixed(2) || '0.00'}</TableCell>
                     <TableCell>{formatSuccessRate(channel)}</TableCell>
                     <TableCell>
-                      <Badge variant={channel.status === 1 ? 'default' : 'destructive'}>
-                        {channel.status === 1 ? t('common.active') : t('common.disabled')}
-                      </Badge>
+                      <Switch
+                        checked={channel.status === 1}
+                        onCheckedChange={(checked) => setPendingStatusChange({ channel, enabled: checked })}
+                        aria-label={channel.status === 1 ? t('common.active') : t('common.disabled')}
+                        className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-amber-400"
+                      />
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
@@ -334,9 +344,6 @@ export function ChannelsPage() {
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => handleEdit(channel)}>
                           {t('common.edit')}
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleToggle(channel.id)}>
-                          {channel.status === 1 ? t('common.disabled') : t('common.active')}
                         </Button>
                         <Button size="sm" variant="destructive" onClick={() => handleDelete(channel.id)}>
                           {t('common.delete')}
@@ -351,6 +358,23 @@ export function ChannelsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!pendingStatusChange} onOpenChange={(open) => !open && setPendingStatusChange(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingStatusChange?.enabled ? t('channels.enableTitle') : t('channels.disableTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingStatusChange?.enabled ? t('channels.enableConfirm') : t('channels.disableConfirm')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingStatusChange(null)}>{t('common.cancel')}</Button>
+            <Button onClick={confirmStatusChange}>{t('common.confirm')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

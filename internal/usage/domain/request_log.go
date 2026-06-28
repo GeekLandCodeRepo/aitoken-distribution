@@ -41,8 +41,22 @@ type RequestLogRepository interface {
 	GetUserStats(userID string, days int) (*UsageStatsResponse, error)
 	GetGlobalOverview() (*UsageOverview, error)
 	GetDailyStats(date time.Time) (*UsageStats, error)
+	GetTokenTrend(granularity string, date time.Time, days int) ([]*TokenTrendPoint, error)
 	GetTopModels(limit int) ([]*ModelUsageStats, error)
 	GetTopUsers(limit int) ([]*UserUsageStats, error)
+}
+
+type TokenTrendPoint struct {
+	Label            string `json:"label"`
+	Date             string `json:"date"`
+	Hour             int    `json:"hour"`
+	Requests         int64  `json:"requests"`
+	Tokens           int64  `json:"tokens"`
+	PromptTokens     int64  `json:"prompt_tokens"`
+	CompletionTokens int64  `json:"completion_tokens"`
+	ReasoningTokens  int64  `json:"reasoning_tokens"`
+	CacheTokens      int64  `json:"cache_tokens"`
+	Cost             int64  `json:"cost"`
 }
 
 type UsageStat struct {

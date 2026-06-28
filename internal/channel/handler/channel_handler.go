@@ -152,14 +152,22 @@ func (h *ChannelHandler) DeleteChannel(w http.ResponseWriter, r *http.Request) {
 	resp.Success(w, map[string]string{"message": "channel deleted successfully"})
 }
 
-func (h *ChannelHandler) ToggleChannel(w http.ResponseWriter, r *http.Request) {
+func (h *ChannelHandler) SetChannelStatus(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		resp.Error(w, errcode.ErrInvalidUserID)
 		return
 	}
 
-	channel, err := h.channelUsecase.ToggleChannel(id)
+	var req struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Enabled == nil {
+		resp.Error(w, errcode.ErrInvalidBody)
+		return
+	}
+
+	channel, err := h.channelUsecase.SetChannelStatus(id, *req.Enabled)
 	if err != nil {
 		if appErr, ok := err.(*errcode.AppError); ok {
 			resp.Error(w, appErr)

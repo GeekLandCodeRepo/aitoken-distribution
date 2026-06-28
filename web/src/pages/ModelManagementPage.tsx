@@ -50,6 +50,7 @@ export function ModelManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingModelId, setEditingModelId] = useState<string | null>(null)
   const [updatingModelIds, setUpdatingModelIds] = useState<Set<string>>(new Set())
+  const [pendingToggleModel, setPendingToggleModel] = useState<{ model: ManagedModel; enabled: boolean } | null>(null)
   const [filterChannelId, setFilterChannelId] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchKeyword, setSearchKeyword] = useState('')
@@ -152,7 +153,9 @@ export function ModelManagementPage() {
     }
   }
 
-  const handleToggleEnabled = async (model: ManagedModel, enabled: boolean) => {
+  const confirmToggleEnabled = async () => {
+    if (!pendingToggleModel) return
+    const { model, enabled } = pendingToggleModel
     if (updatingModelIds.has(model.id)) return
 
     setUpdatingModelIds((ids) => new Set(ids).add(model.id))
@@ -165,6 +168,7 @@ export function ModelManagementPage() {
       setModels((items) => items.map((item) => item.id === model.id ? { ...item, enabled: model.enabled } : item))
       alert(err.message || t('modelManagement.updateFailed'))
     } finally {
+      setPendingToggleModel(null)
       setUpdatingModelIds((ids) => {
         const next = new Set(ids)
         next.delete(model.id)
@@ -406,8 +410,9 @@ export function ModelManagementPage() {
                       <Switch
                         checked={model.enabled}
                         disabled={updatingModelIds.has(model.id)}
-                        onCheckedChange={(checked) => handleToggleEnabled(model, checked)}
+                        onCheckedChange={(checked) => setPendingToggleModel({ model, enabled: checked })}
                         aria-label={t('modelManagement.enabled')}
+                        className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-amber-400"
                       />
                     </TableCell>
                     <TableCell>
@@ -427,6 +432,23 @@ export function ModelManagementPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!pendingToggleModel} onOpenChange={(open) => !open && setPendingToggleModel(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingToggleModel?.enabled ? t('modelManagement.enableTitle') : t('modelManagement.disableTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingToggleModel?.enabled ? t('modelManagement.enableConfirm') : t('modelManagement.disableConfirm')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingToggleModel(null)}>{t('common.cancel')}</Button>
+            <Button onClick={confirmToggleEnabled}>{t('common.confirm')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

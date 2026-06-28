@@ -62,9 +62,9 @@ export const channelApi = {
   
   test: (id: string) =>
     alovaInstance.Post<ChannelTestResult>(`/admin/channels/${id}/test`),
-  
-  toggle: (id: string) =>
-    alovaInstance.Post<Channel>(`/admin/channels/${id}/toggle`),
+
+  updateStatus: (id: string, enabled: boolean) =>
+    alovaInstance.Put<Channel>(`/admin/channels/${id}/status`, { enabled }),
   
   batchCreate: (channels: CreateChannelRequest[]) =>
     alovaInstance.Post<{ created: number; channels: Channel[] }>('/admin/channels/batch', { channels }),

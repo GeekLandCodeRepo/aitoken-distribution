@@ -319,20 +319,23 @@ func (uc *ChannelUsecase) syncModels(channelID string, oldModelsJSON string, new
 	}
 }
 
-func (uc *ChannelUsecase) ToggleChannel(id string) (*domain.Channel, error) {
+func (uc *ChannelUsecase) SetChannelStatus(id string, enabled bool) (*domain.Channel, error) {
 	channel, err := uc.GetChannel(id)
 	if err != nil {
 		return nil, err
 	}
 
-	if channel.Status == 1 {
-		channel.Status = 0
-	} else {
+	if enabled {
 		channel.Status = 1
+	} else {
+		channel.Status = 0
 	}
 	channel.UpdatedAt = time.Now()
 
 	if err := uc.channelRepo.Update(channel); err != nil {
+		return nil, errcode.ErrDatabase
+	}
+	if err := uc.modelRepo.UpdateEnabledByChannel(channel.ID, enabled); err != nil {
 		return nil, errcode.ErrDatabase
 	}
 	return channel, nil

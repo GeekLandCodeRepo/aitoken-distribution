@@ -138,6 +138,35 @@ func (h *UsageHandler) GetDailyStats(w http.ResponseWriter, r *http.Request) {
 	resp.Success(w, stats)
 }
 
+func (h *UsageHandler) GetTokenTrend(w http.ResponseWriter, r *http.Request) {
+	granularity := r.URL.Query().Get("granularity")
+	if granularity != "hour" && granularity != "day" {
+		granularity = "day"
+	}
+
+	date := time.Now().UTC()
+	if value := r.URL.Query().Get("date"); value != "" {
+		parsed, err := time.Parse("2006-01-02", value)
+		if err != nil {
+			resp.Error(w, errcode.ErrInvalidTimeRange)
+			return
+		}
+		date = parsed
+	}
+
+	days, _ := strconv.Atoi(r.URL.Query().Get("days"))
+	if days < 1 || days > 90 {
+		days = 14
+	}
+
+	trend, err := h.usageUsecase.GetTokenTrend(granularity, date, days)
+	if err != nil {
+		resp.Error(w, errcode.ErrInternal)
+		return
+	}
+	resp.Success(w, trend)
+}
+
 func (h *UsageHandler) GetTopUsers(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit < 1 || limit > 100 {

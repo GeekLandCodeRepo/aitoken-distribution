@@ -28,6 +28,9 @@ coverage.out
 vendor/
 
 # 日志
+runtime/
+log/
+pid/
 logs/
 *.log
 npm-debug.log*

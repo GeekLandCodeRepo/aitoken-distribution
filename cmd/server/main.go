@@ -217,6 +217,7 @@ func main() {
 					r.Post("/", channel_handler.CreateChannel)
 					r.Get("/{id}", channel_handler.GetChannel)
 					r.Put("/{id}", channel_handler.UpdateChannel)
+					r.Put("/{id}/status", channel_handler.SetChannelStatus)
 					r.Delete("/{id}", channel_handler.DeleteChannel)
 				})
 
@@ -240,6 +241,7 @@ func main() {
 				r.Route("/usage", func(r chi.Router) {
 					r.Get("/overview", usage_handler.GetGlobalOverview)
 					r.Get("/daily", usage_handler.GetDailyStats)
+					r.Get("/token-trend", usage_handler.GetTokenTrend)
 					r.Get("/top-models", usage_handler.GetTopModels)
 					r.Get("/top-users", usage_handler.GetTopUsers)
 					r.Get("/logs", usage_handler.GetAllLogs)

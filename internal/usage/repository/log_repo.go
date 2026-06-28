@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -233,6 +234,104 @@ func (r *requestLogRepository) GetDailyStats(date time.Time) (*domain.UsageStats
 		FROM request_logs WHERE created_at >= ? AND created_at < ?
 	`, start, end).Get(&stats.Requests, &stats.Tokens, &stats.Cost)
 	return stats, err
+}
+
+func (r *requestLogRepository) GetTokenTrend(granularity string, date time.Time, days int) ([]*domain.TokenTrendPoint, error) {
+	if granularity == "hour" {
+		return r.getHourlyTokenTrend(date)
+	}
+	return r.getDailyTokenTrend(days)
+}
+
+func (r *requestLogRepository) getHourlyTokenTrend(date time.Time) ([]*domain.TokenTrendPoint, error) {
+	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	dateLabel := start.Format("2006-01-02")
+
+	points := make([]*domain.TokenTrendPoint, 24)
+	byHour := make(map[int]*domain.TokenTrendPoint, 24)
+	for hour := 0; hour < 24; hour++ {
+		point := &domain.TokenTrendPoint{Label: fmt.Sprintf("%02d:00", hour), Date: dateLabel, Hour: hour}
+		points[hour] = point
+		byHour[hour] = point
+	}
+
+	rows := make([]*domain.TokenTrendPoint, 0)
+	if err := r.db.SQL(`
+		SELECT EXTRACT(HOUR FROM created_at)::int AS hour,
+		       COUNT(*) AS requests,
+		       COALESCE(SUM(total_tokens), 0) AS tokens,
+		       COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
+		       COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+		       COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
+		       COALESCE(SUM(cache_tokens), 0) AS cache_tokens,
+		       COALESCE(SUM(cost), 0) AS cost
+		FROM request_logs
+		WHERE created_at >= ? AND created_at < ?
+		GROUP BY EXTRACT(HOUR FROM created_at)::int
+		ORDER BY hour ASC
+	`, start, end).Find(&rows); err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		if point := byHour[row.Hour]; point != nil {
+			point.Requests = row.Requests
+			point.Tokens = row.Tokens
+			point.PromptTokens = row.PromptTokens
+			point.CompletionTokens = row.CompletionTokens
+			point.ReasoningTokens = row.ReasoningTokens
+			point.CacheTokens = row.CacheTokens
+			point.Cost = row.Cost
+		}
+	}
+	return points, nil
+}
+
+func (r *requestLogRepository) getDailyTokenTrend(days int) ([]*domain.TokenTrendPoint, error) {
+	if days < 1 || days > 90 {
+		days = 14
+	}
+	start := time.Now().UTC().AddDate(0, 0, -days+1).Truncate(24 * time.Hour)
+	end := start.AddDate(0, 0, days)
+
+	points := make([]*domain.TokenTrendPoint, 0, days)
+	byDate := make(map[string]*domain.TokenTrendPoint, days)
+	for i := 0; i < days; i++ {
+		dateLabel := start.AddDate(0, 0, i).Format("2006-01-02")
+		point := &domain.TokenTrendPoint{Label: dateLabel, Date: dateLabel, Hour: -1}
+		points = append(points, point)
+		byDate[dateLabel] = point
+	}
+
+	rows := make([]*domain.TokenTrendPoint, 0)
+	if err := r.db.SQL(`
+		SELECT to_char(created_at::date, 'YYYY-MM-DD') AS date,
+		       COUNT(*) AS requests,
+		       COALESCE(SUM(total_tokens), 0) AS tokens,
+		       COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
+		       COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+		       COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
+		       COALESCE(SUM(cache_tokens), 0) AS cache_tokens,
+		       COALESCE(SUM(cost), 0) AS cost
+		FROM request_logs
+		WHERE created_at >= ? AND created_at < ?
+		GROUP BY created_at::date
+		ORDER BY created_at::date ASC
+	`, start, end).Find(&rows); err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		if point := byDate[row.Date]; point != nil {
+			point.Requests = row.Requests
+			point.Tokens = row.Tokens
+			point.PromptTokens = row.PromptTokens
+			point.CompletionTokens = row.CompletionTokens
+			point.ReasoningTokens = row.ReasoningTokens
+			point.CacheTokens = row.CacheTokens
+			point.Cost = row.Cost
+		}
+	}
+	return points, nil
 }
 
 func (r *requestLogRepository) GetTopModels(limit int) ([]*domain.ModelUsageStats, error) {

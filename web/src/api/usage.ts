@@ -55,6 +55,19 @@ export interface UsageStatsResponse {
   by_model: UsageByModel[]
 }
 
+export interface TokenTrendPoint {
+  label: string
+  date: string
+  hour: number
+  requests: number
+  tokens: number
+  prompt_tokens: number
+  completion_tokens: number
+  reasoning_tokens: number
+  cache_tokens: number
+  cost: number
+}
+
 export interface RequestLog {
   id: string
   user_id: string
@@ -110,6 +123,9 @@ export const usageApi = {
 
   adminDaily: (params?: { date?: string }) =>
     alovaInstance.Get<UsageOverview['today']>('/admin/usage/daily', { params }),
+
+  adminTokenTrend: (params?: { granularity?: 'hour' | 'day'; date?: string; days?: number }) =>
+    alovaInstance.Get<TokenTrendPoint[]>('/admin/usage/token-trend', { params }),
 
   adminTopModels: (params?: { limit?: number }) =>
     alovaInstance.Get<ModelUsageStats[]>('/admin/usage/top-models', { params }),
