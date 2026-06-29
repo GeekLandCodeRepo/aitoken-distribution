@@ -25,6 +25,13 @@ export interface TopUpRequest {
   description?: string
 }
 
+export interface TopUpResponse {
+  user_id: string
+  balance_before: number
+  balance_after: number
+  amount: number
+}
+
 export interface CreateUserRequest {
   email: string
   username: string
@@ -85,7 +92,7 @@ export const userApi = {
     alovaInstance.Delete(`/admin/users/${id}`),
   
   topUp: (id: string, data: TopUpRequest) =>
-    alovaInstance.Post(`/admin/users/${id}/topup`, data),
+    alovaInstance.Post<TopUpResponse>(`/admin/users/${id}/topup`, data),
 
   resetPassword: (id: string) =>
     alovaInstance.Post<{ default_password: string }>(`/admin/users/${id}/reset-password`),

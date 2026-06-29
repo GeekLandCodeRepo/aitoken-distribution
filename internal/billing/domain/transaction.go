@@ -117,7 +117,7 @@ func (User) TableName() string {
 type UserRepository interface {
 	GetByID(id string) (*User, error)
 	UpdateBalance(id string, amount int64) error
-	ApplyUsage(id string, cost int64) error
+	ApplyUsage(id string, cost int64) (int64, error)
 }
 
 // ApiKey API Key模型（用于计费模块跨模块调用）

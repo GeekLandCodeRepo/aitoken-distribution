@@ -230,16 +230,18 @@ func (r *userRepository) UpdateBalance(id string, amount int64) error {
 	return err
 }
 
-func (r *userRepository) ApplyUsage(id string, cost int64) error {
-	_, err := r.db.Exec(`
+func (r *userRepository) ApplyUsage(id string, cost int64) (int64, error) {
+	balanceAfter := int64(0)
+	_, err := r.db.SQL(`
 		UPDATE users
 		SET balance = balance - ?,
 		    used_quota = used_quota + ?,
 		    request_count = request_count + 1,
 		    updated_at = NOW()
 		WHERE id = ?
-	`, cost, cost, id)
-	return err
+		RETURNING balance
+	`, cost, cost, id).Get(&balanceAfter)
+	return balanceAfter, err
 }
 
 type apiKeyRepository struct {

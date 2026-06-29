@@ -26,6 +26,7 @@ import {
 import { userApi, type User, type UserChannelOption } from '@/api'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useAuthStore } from '@/store/auth'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -50,6 +51,8 @@ export function UsersPage() {
   const [channelOptions, setChannelOptions] = useState<UserChannelOption[]>([])
   const [channelsLoading, setChannelsLoading] = useState(false)
   const [channelsSaving, setChannelsSaving] = useState(false)
+  const currentUser = useAuthStore((state) => state.user)
+  const setCurrentUser = useAuthStore((state) => state.setUser)
 
   useEffect(() => {
     fetchUsers()
@@ -83,10 +86,16 @@ export function UsersPage() {
     const amount = Math.floor(rawAmount * 1000000) * (topUpDirection === 'decrease' ? -1 : 1)
 
     try {
-      await userApi.topUp(topUpUser.id, {
+      const result = await userApi.topUp(topUpUser.id, {
         amount,
         description: topUpDirection === 'decrease' ? 'Admin balance decrease' : 'Admin balance increase',
       })
+      setUsers((prev) =>
+        prev.map((user) => (user.id === topUpUser.id ? { ...user, balance: result.balance_after } : user))
+      )
+      if (currentUser?.id === topUpUser.id) {
+        setCurrentUser({ ...currentUser, balance: result.balance_after })
+      }
       toast.success(t('users.topUpSuccess'))
       setTopUpOpen(false)
       setTopUpUser(null)

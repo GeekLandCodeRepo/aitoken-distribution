@@ -182,7 +182,8 @@ func (uc *BillingUsecase) finalize(ctx context.Context, params PostConsumeParams
 		balanceKey := fmt.Sprintf("user_balance:%s", params.UserID)
 		uc.redis.IncrBy(ctx, balanceKey, -delta)
 	}
-	if err := uc.userRepo.ApplyUsage(params.UserID, actualCost); err != nil {
+	balanceAfter, err := uc.userRepo.ApplyUsage(params.UserID, actualCost)
+	if err != nil {
 		return 0, err
 	}
 	if actualCost > 0 && params.KeyID != "" {
@@ -197,6 +198,7 @@ func (uc *BillingUsecase) finalize(ctx context.Context, params PostConsumeParams
 		UserID:        params.UserID,
 		Type:          2, // 消费
 		Amount:        -actualCost,
+		BalanceAfter:  balanceAfter,
 		ReferenceType: "request",
 		ReferenceID:   params.RequestID,
 		Description:   fmt.Sprintf("%s: %d prompt + %d completion tokens", params.Model, params.PromptTokens, params.CompletionTokens),
@@ -218,15 +220,20 @@ func (uc *BillingUsecase) Refund(ctx context.Context, userID string, amount int6
 
 	balanceKey := fmt.Sprintf("user_balance:%s", userID)
 	uc.redis.IncrBy(ctx, balanceKey, amount)
+	balanceAfter := int64(0)
+	if user, err := uc.userRepo.GetByID(userID); err == nil && user != nil {
+		balanceAfter = user.Balance
+	}
 
 	// 记录退款交易
 	tx := &domain.Transaction{
-		ID:          uuid.NewV7String(),
-		UserID:      userID,
-		Type:        3, // 退款
-		Amount:      amount,
-		Description: "Refund for failed request",
-		CreatedAt:   time.Now(),
+		ID:           uuid.NewV7String(),
+		UserID:       userID,
+		Type:         3, // 退款
+		Amount:       amount,
+		BalanceAfter: balanceAfter,
+		Description:  "Refund for failed request",
+		CreatedAt:    time.Now(),
 	}
 
 	if err := uc.txRepo.Create(tx); err != nil {
