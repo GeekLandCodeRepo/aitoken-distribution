@@ -412,7 +412,6 @@ export function ModelManagementPage() {
                         disabled={updatingModelIds.has(model.id)}
                         onCheckedChange={(checked) => setPendingToggleModel({ model, enabled: checked })}
                         aria-label={t('modelManagement.enabled')}
-                        className="data-[state=checked]:bg-emerald-500"
                       />
                     </TableCell>
                     <TableCell>
