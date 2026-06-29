@@ -1,4 +1,8 @@
-# AiToken 分发站
+<p align="center">
+  <img src="web/public/favicon.svg" alt="AiToken 分发站 Logo" width="96" height="96" />
+</p>
+
+<h1 align="center">AiToken 分发站</h1>
 
 AiToken 分发站是一个面向团队、组织和个人开发者的 LLM API 分发与管理平台。它把多个上游大模型渠道统一封装成 OpenAI 兼容接口，同时提供用户、API Key、渠道、模型管理、额度计费、请求日志和权限控制能力，适合用来搭建私有的模型 API 网关。
 
