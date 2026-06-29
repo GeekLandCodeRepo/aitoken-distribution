@@ -113,10 +113,12 @@ export function KeysPage() {
   const handleUpdate = async () => {
     if (!editingKey || !editForm.name) return
     try {
-      await apiKeyApi.update(editingKey.id, editForm)
+      const updated = await apiKeyApi.update(editingKey.id, editForm)
+      setKeys((prev) => prev.map((key) => (
+        key.id === editingKey.id ? { ...key, ...updated } : key
+      )))
       setEditingKey(null)
       setEditForm({ name: '' })
-      fetchKeys()
     } catch (err: any) {
       alert(err.message || t('keys.updateFailed'))
     }
