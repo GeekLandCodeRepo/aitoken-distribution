@@ -51,6 +51,33 @@ func (r *apiKeyRepository) Update(key *domain.ApiKey) error {
 	return err
 }
 
+func (r *apiKeyRepository) UpdateEditable(key *domain.ApiKey) error {
+	result, err := r.db.Exec(
+		`UPDATE api_keys
+		SET name = ?, quota_limit = ?, rate_limit = ?, allowed_models = ?, allowed_ips = ?, expires_at = ?
+		WHERE id = ? AND user_id = ?`,
+		key.Name,
+		key.QuotaLimit,
+		key.RateLimit,
+		key.AllowedModels,
+		key.AllowedIPs,
+		key.ExpiresAt,
+		key.ID,
+		key.UserID,
+	)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("api key not found")
+	}
+	return nil
+}
+
 func (r *apiKeyRepository) UpdateStatus(id, userID string, status int) error {
 	result, err := r.db.Exec("UPDATE api_keys SET status = ? WHERE id = ? AND user_id = ?", status, id, userID)
 	if err != nil {

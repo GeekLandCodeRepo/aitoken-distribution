@@ -152,8 +152,15 @@ func (uc *KeyUsecase) UpdateKey(id, userID string, req CreateKeyRequest) (*domai
 		data, _ := json.Marshal(req.AllowedIPs)
 		key.AllowedIPs = string(data)
 	}
+	if req.ExpiresAt != nil {
+		if *req.ExpiresAt == "" {
+			key.ExpiresAt = nil
+		} else if t, err := time.Parse(time.RFC3339, *req.ExpiresAt); err == nil {
+			key.ExpiresAt = &t
+		}
+	}
 
-	if err := uc.keyRepo.UpdateStatus(key.ID, userID, key.Status); err != nil {
+	if err := uc.keyRepo.UpdateEditable(key); err != nil {
 		return nil, errcode.ErrDatabase
 	}
 	return key, nil
