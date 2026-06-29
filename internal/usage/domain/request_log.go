@@ -42,8 +42,10 @@ type RequestLogRepository interface {
 	GetGlobalOverview() (*UsageOverview, error)
 	GetDailyStats(date time.Time) (*UsageStats, error)
 	GetTokenTrend(granularity string, date time.Time, days int) ([]*TokenTrendPoint, error)
+	GetUserTokenTrend(userID string, granularity string, date time.Time, days int) ([]*TokenTrendPoint, error)
 	GetTopModels(limit int) ([]*ModelUsageStats, error)
 	GetTopUsers(limit int) ([]*UserUsageStats, error)
+	GetUserTopAPIKeys(userID string, limit int) ([]*APIKeyUsageStats, error)
 }
 
 type TokenTrendPoint struct {
@@ -120,4 +122,15 @@ type UserUsageStats struct {
 	Tokens     int64   `json:"tokens"`
 	Cost       int64   `json:"cost"`
 	Percentage float64 `json:"percentage"`
+}
+
+type APIKeyUsageStats struct {
+	KeyID      string  `json:"key_id" xorm:"'key_id'"`
+	KeyName    string  `json:"key_name" xorm:"'key_name'"`
+	KeyPrefix  string  `json:"key_prefix" xorm:"'key_prefix'"`
+	KeySuffix  string  `json:"key_suffix" xorm:"'key_suffix'"`
+	Requests   int64   `json:"requests" xorm:"'requests'"`
+	Tokens     int64   `json:"tokens" xorm:"'tokens'"`
+	Cost       int64   `json:"cost" xorm:"'cost'"`
+	Percentage float64 `json:"percentage" xorm:"'percentage'"`
 }

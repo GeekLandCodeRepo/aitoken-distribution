@@ -238,12 +238,19 @@ func (r *requestLogRepository) GetDailyStats(date time.Time) (*domain.UsageStats
 
 func (r *requestLogRepository) GetTokenTrend(granularity string, date time.Time, days int) ([]*domain.TokenTrendPoint, error) {
 	if granularity == "hour" {
-		return r.getHourlyTokenTrend(date)
+		return r.getHourlyTokenTrend("", date)
 	}
-	return r.getDailyTokenTrend(days)
+	return r.getDailyTokenTrend("", days)
 }
 
-func (r *requestLogRepository) getHourlyTokenTrend(date time.Time) ([]*domain.TokenTrendPoint, error) {
+func (r *requestLogRepository) GetUserTokenTrend(userID string, granularity string, date time.Time, days int) ([]*domain.TokenTrendPoint, error) {
+	if granularity == "hour" {
+		return r.getHourlyTokenTrend(userID, date)
+	}
+	return r.getDailyTokenTrend(userID, days)
+}
+
+func (r *requestLogRepository) getHourlyTokenTrend(userID string, date time.Time) ([]*domain.TokenTrendPoint, error) {
 	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
 	dateLabel := start.Format("2006-01-02")
@@ -256,8 +263,15 @@ func (r *requestLogRepository) getHourlyTokenTrend(date time.Time) ([]*domain.To
 		byHour[hour] = point
 	}
 
+	where := "created_at >= ? AND created_at < ?"
+	args := []interface{}{start, end}
+	if userID != "" {
+		where += " AND user_id = ?"
+		args = append(args, userID)
+	}
+
 	rows := make([]*domain.TokenTrendPoint, 0)
-	if err := r.db.SQL(`
+	query := `
 		SELECT EXTRACT(HOUR FROM created_at)::int AS hour,
 		       COUNT(*) AS requests,
 		       COALESCE(SUM(total_tokens), 0) AS tokens,
@@ -267,10 +281,11 @@ func (r *requestLogRepository) getHourlyTokenTrend(date time.Time) ([]*domain.To
 		       COALESCE(SUM(cache_tokens), 0) AS cache_tokens,
 		       COALESCE(SUM(cost), 0) AS cost
 		FROM request_logs
-		WHERE created_at >= ? AND created_at < ?
+		WHERE ` + where + `
 		GROUP BY EXTRACT(HOUR FROM created_at)::int
 		ORDER BY hour ASC
-	`, start, end).Find(&rows); err != nil {
+	`
+	if err := r.db.SQL(query, args...).Find(&rows); err != nil {
 		return nil, err
 	}
 	for _, row := range rows {
@@ -287,7 +302,7 @@ func (r *requestLogRepository) getHourlyTokenTrend(date time.Time) ([]*domain.To
 	return points, nil
 }
 
-func (r *requestLogRepository) getDailyTokenTrend(days int) ([]*domain.TokenTrendPoint, error) {
+func (r *requestLogRepository) getDailyTokenTrend(userID string, days int) ([]*domain.TokenTrendPoint, error) {
 	if days < 1 || days > 90 {
 		days = 14
 	}
@@ -303,8 +318,15 @@ func (r *requestLogRepository) getDailyTokenTrend(days int) ([]*domain.TokenTren
 		byDate[dateLabel] = point
 	}
 
+	where := "created_at >= ? AND created_at < ?"
+	args := []interface{}{start, end}
+	if userID != "" {
+		where += " AND user_id = ?"
+		args = append(args, userID)
+	}
+
 	rows := make([]*domain.TokenTrendPoint, 0)
-	if err := r.db.SQL(`
+	query := `
 		SELECT to_char(created_at::date, 'YYYY-MM-DD') AS date,
 		       COUNT(*) AS requests,
 		       COALESCE(SUM(total_tokens), 0) AS tokens,
@@ -314,10 +336,11 @@ func (r *requestLogRepository) getDailyTokenTrend(days int) ([]*domain.TokenTren
 		       COALESCE(SUM(cache_tokens), 0) AS cache_tokens,
 		       COALESCE(SUM(cost), 0) AS cost
 		FROM request_logs
-		WHERE created_at >= ? AND created_at < ?
+		WHERE ` + where + `
 		GROUP BY created_at::date
 		ORDER BY created_at::date ASC
-	`, start, end).Find(&rows); err != nil {
+	`
+	if err := r.db.SQL(query, args...).Find(&rows); err != nil {
 		return nil, err
 	}
 	for _, row := range rows {
@@ -355,6 +378,48 @@ func (r *requestLogRepository) GetTopModels(limit int) ([]*domain.ModelUsageStat
 		ORDER BY tokens DESC
 		LIMIT ?
 	`, limit).Find(&stats); err != nil {
+		return nil, err
+	}
+
+	if totalTokens > 0 {
+		for _, item := range stats {
+			item.Percentage = float64(item.Tokens) / float64(totalTokens) * 100
+		}
+	}
+
+	return stats, nil
+}
+
+func (r *requestLogRepository) GetUserTopAPIKeys(userID string, limit int) ([]*domain.APIKeyUsageStats, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	var totalTokens int64
+	if _, err := r.db.SQL(`
+		SELECT COALESCE(SUM(total_tokens), 0)
+		FROM request_logs
+		WHERE user_id = ?
+	`, userID).Get(&totalTokens); err != nil {
+		return nil, err
+	}
+
+	stats := make([]*domain.APIKeyUsageStats, 0)
+	if err := r.db.SQL(`
+		SELECT COALESCE(rl.api_key_id::text, '') AS key_id,
+		       COALESCE(ak.name, 'Unknown') AS key_name,
+		       COALESCE(ak.key_prefix, '') AS key_prefix,
+		       COALESCE(ak.key_suffix, '') AS key_suffix,
+		       COUNT(*) AS requests,
+		       COALESCE(SUM(rl.total_tokens), 0) AS tokens,
+		       COALESCE(SUM(rl.cost), 0) AS cost
+		FROM request_logs rl
+		LEFT JOIN api_keys ak ON ak.id = rl.api_key_id
+		WHERE rl.user_id = ?
+		GROUP BY COALESCE(rl.api_key_id::text, ''), COALESCE(ak.name, 'Unknown'), COALESCE(ak.key_prefix, ''), COALESCE(ak.key_suffix, '')
+		ORDER BY tokens DESC
+		LIMIT ?
+	`, userID, limit).Find(&stats); err != nil {
 		return nil, err
 	}
 

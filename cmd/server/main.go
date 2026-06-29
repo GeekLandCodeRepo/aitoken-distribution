@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -51,17 +51,19 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+		slog.Info("no .env file found, using system environment variables")
 	}
 
 	cfg := config.Load()
 
 	if err := database.Init(cfg); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		slog.Error("failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 
 	if err := redis.Init(cfg); err != nil {
-		log.Fatalf("Failed to initialize redis: %v", err)
+		slog.Error("failed to initialize redis", "error", err)
+		os.Exit(1)
 	}
 	defer redis.Close()
 
@@ -71,10 +73,12 @@ func main() {
 
 	token_manager := jwt.NewTokenManager(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
 
+	transaction_repository := billing_repo.NewTransactionRepository(db)
+
 	// User module
 	user_repository := user_repo.NewUserRepository(db)
 	auth_usecase := user_usecase.NewAuthUsecase(user_repository, token_manager)
-	user_usecase_instance := user_usecase.NewUserUsecase(user_repository)
+	user_usecase_instance := user_usecase.NewUserUsecase(user_repository, rdb)
 	auth_handler := user_handler.NewAuthHandler(auth_usecase)
 	user_handler := user_handler.NewUserHandler(user_usecase_instance)
 
@@ -94,7 +98,6 @@ func main() {
 	channel_handler := channel_handler.NewChannelHandler(channel_usecase_instance)
 
 	// Billing module
-	transaction_repository := billing_repo.NewTransactionRepository(db)
 	request_log_repository := billing_repo.NewRequestLogRepository(db)
 	user_repository_billing := billing_repo.NewUserRepository(db)
 	apikey_repository_billing := billing_repo.NewApiKeyRepository(db)
@@ -173,6 +176,8 @@ func main() {
 				r.Get("/overview", usage_handler.GetOverview)
 				r.Get("/stats", usage_handler.GetStats)
 				r.Get("/logs", usage_handler.GetLogs)
+				r.Get("/token-trend", usage_handler.GetUserTokenTrend)
+				r.Get("/top-api-keys", usage_handler.GetUserTopAPIKeys)
 			})
 
 			// Billing routes
@@ -237,6 +242,8 @@ func main() {
 					r.Delete("/{id}", billing_handler.DeleteCode)
 				})
 
+				r.Get("/transactions", billing_handler.GetAdminTransactions)
+
 				// Usage statistics
 				r.Route("/usage", func(r chi.Router) {
 					r.Get("/overview", usage_handler.GetGlobalOverview)
@@ -265,7 +272,7 @@ func main() {
 	serveWebUI(r)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
-	log.Printf("Server starting on %s", addr)
+	slog.Info("server starting", "addr", addr)
 
 	server := &http.Server{
 		Addr:              addr,
@@ -275,22 +282,23 @@ func main() {
 	}
 
 	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("Server failed to start: %v", err)
+		slog.Error("server failed to start", "error", err)
+		os.Exit(1)
 	}
 }
 
 func serveWebUI(r chi.Router) {
 	if !serveWebEnabled() {
-		log.Println("Web UI static serving disabled by SERVE_WEB")
+		slog.Info("web ui static serving disabled by SERVE_WEB")
 		return
 	}
 
 	staticDir := resolveWebDistDir()
 	if staticDir == "" {
-		log.Println("Web dist directory not found, Web UI static serving disabled")
+		slog.Info("web dist directory not found, web ui static serving disabled")
 		return
 	}
-	log.Printf("Serving Web UI from %s", staticDir)
+	slog.Info("serving web ui", "dir", staticDir)
 
 	fileServer := http.FileServer(http.Dir(staticDir))
 	r.Get("/*", func(w http.ResponseWriter, req *http.Request) {

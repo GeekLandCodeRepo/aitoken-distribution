@@ -79,6 +79,34 @@ func (h *BillingHandler) GetTransactions(w http.ResponseWriter, r *http.Request)
 	resp.Paginated(w, total, page, size, txs)
 }
 
+func (h *BillingHandler) GetAdminTransactions(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	size, _ := strconv.Atoi(r.URL.Query().Get("size"))
+	userID := r.URL.Query().Get("user_id")
+	userEmail := r.URL.Query().Get("user_email")
+
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 || size > 100 {
+		size = 20
+	}
+
+	var txType *int
+	if t := r.URL.Query().Get("type"); t != "" {
+		val, _ := strconv.Atoi(t)
+		txType = &val
+	}
+
+	txs, total, err := h.txRepo.ListAll(page, size, userID, userEmail, txType)
+	if err != nil {
+		resp.Error(w, errcode.ErrInternal)
+		return
+	}
+
+	resp.Paginated(w, total, page, size, txs)
+}
+
 func (h *BillingHandler) ListCodes(w http.ResponseWriter, r *http.Request) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	size, _ := strconv.Atoi(r.URL.Query().Get("size"))

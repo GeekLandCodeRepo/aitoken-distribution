@@ -1,8 +1,11 @@
 package domain
 
 import (
+	"errors"
 	"time"
 )
+
+var ErrInsufficientBalance = errors.New("insufficient balance")
 
 type User struct {
 	// ID is the user's UUID primary key.
@@ -106,6 +109,7 @@ type UserRepository interface {
 	List(page, size int, search string, status, role *int) ([]*User, int64, error)
 	UpdateBalance(id string, amount int64) error
 	IncrementBalance(id string, amount int64) error
+	AdminAdjustBalance(id string, amount int64, txType int, description string) (int64, int64, error)
 	UpdateUsedQuota(id string, amount int64) error
 	IncrementRequestCount(id string) error
 	CreateInviteCode(code *InviteCode) error

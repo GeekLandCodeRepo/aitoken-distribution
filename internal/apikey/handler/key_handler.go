@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -99,6 +100,7 @@ func (h *KeyHandler) DeleteKey(w http.ResponseWriter, r *http.Request) {
 		if appErr, ok := err.(*errcode.AppError); ok {
 			resp.Error(w, appErr)
 		} else {
+			slog.Error("delete api key failed", "key_id", id, "user_id", userID, "error", err)
 			resp.Error(w, errcode.ErrInternal)
 		}
 		return

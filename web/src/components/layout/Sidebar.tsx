@@ -37,6 +37,7 @@ export function Sidebar({ user }: SidebarProps) {
     { path: '/models', label: t('sidebar.models'), icon: '🧠' },
     { path: '/usage', label: t('sidebar.usage'), icon: '📈' },
     { path: '/redeem', label: t('sidebar.redeem'), icon: '🎫' },
+    { path: '/balance-transactions', label: t('sidebar.balanceTransactions'), icon: '💳' },
   ]
 
   const adminLinks = [
@@ -45,6 +46,7 @@ export function Sidebar({ user }: SidebarProps) {
     { path: '/admin/channels', label: t('sidebar.channels'), icon: '🔗' },
     { path: '/admin/models', label: t('sidebar.modelManagement'), icon: '🧠' },
     { path: '/admin/redeem-codes', label: t('sidebar.redeemCodes'), icon: '🎟️' },
+    { path: '/admin/balance-transactions', label: t('sidebar.balanceTransactions'), icon: '💳' },
     { path: '/admin/logs', label: t('sidebar.logs'), icon: '📝' },
     { path: '/admin/settings', label: t('sidebar.siteSettings'), icon: '⚙️' },
   ]

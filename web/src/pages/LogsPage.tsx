@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, SlidersHorizontal, Zap } from 'lucide-react'
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -162,21 +161,21 @@ export function LogsPage() {
 
           <div className="overflow-hidden rounded-lg border">
             <div className="max-h-[620px] overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/35 hover:bg-muted/35">
-                    <TableHead className="sticky top-0 z-20 min-w-[70px] bg-muted">{t('logs.status')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[150px] bg-muted">{t('logs.model')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[190px] bg-muted">{t('logs.sourceAccount')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[170px] bg-muted">{t('logs.apiKey')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[120px] bg-muted">IP</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[170px] bg-muted">{t('logs.endpoint')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[130px] bg-muted">{t('logs.type')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[260px] bg-muted text-right">TOKEN</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[120px] bg-muted text-right">{t('logs.cost')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[95px] bg-muted text-right">{t('logs.firstByte')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[85px] bg-muted text-right">{t('logs.totalTime')}</TableHead>
-                    <TableHead className="sticky top-0 z-20 min-w-[120px] bg-muted text-right">{t('logs.time')}</TableHead>
+              <table className="w-full caption-bottom border-separate border-spacing-0 text-sm">
+                <TableHeader className="sticky top-0 z-30 bg-background shadow-sm">
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="sticky top-0 z-30 min-w-[70px] bg-background/95 backdrop-blur">{t('logs.status')}</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[150px] bg-background/95 backdrop-blur">{t('logs.model')}</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[190px] bg-background/95 backdrop-blur">{t('logs.sourceAccount')}</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[170px] bg-background/95 backdrop-blur">{t('logs.apiKey')}</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[120px] bg-background/95 backdrop-blur">IP</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[170px] bg-background/95 backdrop-blur">{t('logs.endpoint')}</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[130px] bg-background/95 backdrop-blur">{t('logs.type')}</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[260px] bg-background/95 text-right backdrop-blur">TOKEN</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[120px] bg-background/95 text-right backdrop-blur">{t('logs.cost')}</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[95px] bg-background/95 text-right backdrop-blur">{t('logs.firstByte')}</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[85px] bg-background/95 text-right backdrop-blur">{t('logs.totalTime')}</TableHead>
+                    <TableHead className="sticky top-0 z-30 min-w-[120px] bg-background/95 text-right backdrop-blur">{t('logs.time')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -193,10 +192,10 @@ export function LogsPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    visibleLogs.map((log) => <LogRow key={log.id} log={log} />)
+                    visibleLogs.map((log, index) => <LogRow key={log.id} log={log} index={index} />)
                   )}
                 </TableBody>
-              </Table>
+              </table>
             </div>
           </div>
 
@@ -241,12 +240,12 @@ export function LogsPage() {
   )
 }
 
-function LogRow({ log }: { log: RequestLog }) {
+function LogRow({ log, index }: { log: RequestLog; index: number }) {
   const firstByte = log.first_byte_ms || 0
   const totalTime = log.latency_ms || 0
 
   return (
-    <TableRow className="text-xs">
+    <TableRow className={cn('text-xs hover:bg-primary/10', index % 2 === 0 ? 'bg-primary/[0.035]' : 'bg-background')}>
       <TableCell>
         <Badge className={cn('font-mono', log.status_code >= 200 && log.status_code < 300 ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : 'bg-red-100 text-red-700 hover:bg-red-100')}>
           {log.status_code}

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -118,13 +118,13 @@ func (c *Consumer) Run(ctx context.Context) error {
 			if errors.Is(err, redislib.Nil) || ctx.Err() != nil {
 				continue
 			}
-			log.Printf("request event read failed: %v", err)
+			slog.Error("request event read failed", "error", err)
 			time.Sleep(time.Second)
 			continue
 		}
 		for _, stream := range streams {
 			if err := c.handleMessages(ctx, stream.Messages); err != nil {
-				log.Printf("request event batch failed: %v", err)
+				slog.Error("request event batch failed", "error", err)
 			}
 		}
 	}
@@ -256,13 +256,13 @@ func (c *Consumer) recoverPending(ctx context.Context) {
 		}).Result()
 		if err != nil {
 			if !errors.Is(err, redislib.Nil) {
-				log.Printf("request event pending recovery failed: %v", err)
+				slog.Error("request event pending recovery failed", "error", err)
 			}
 			return
 		}
 		if len(messages) > 0 {
 			if err := c.handleMessages(ctx, messages); err != nil {
-				log.Printf("request event pending batch failed: %v", err)
+				slog.Error("request event pending batch failed", "error", err)
 			}
 		}
 		if len(messages) == 0 || next == "0-0" || next == start {

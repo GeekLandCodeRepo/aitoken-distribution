@@ -48,10 +48,27 @@ func (uc *UsageUsecase) GetTokenTrend(granularity string, date time.Time, days i
 	return uc.logRepo.GetTokenTrend(granularity, date, days)
 }
 
+func (uc *UsageUsecase) GetUserTokenTrend(userID string, granularity string, date time.Time, days int) ([]*domain.TokenTrendPoint, error) {
+	if granularity != "hour" && granularity != "day" {
+		granularity = "day"
+	}
+	if granularity == "day" && (days < 1 || days > 90) {
+		days = 14
+	}
+	return uc.logRepo.GetUserTokenTrend(userID, granularity, date, days)
+}
+
 func (uc *UsageUsecase) GetTopModels(limit int) ([]*domain.ModelUsageStats, error) {
 	return uc.logRepo.GetTopModels(limit)
 }
 
 func (uc *UsageUsecase) GetTopUsers(limit int) ([]*domain.UserUsageStats, error) {
 	return uc.logRepo.GetTopUsers(limit)
+}
+
+func (uc *UsageUsecase) GetUserTopAPIKeys(userID string, limit int) ([]*domain.APIKeyUsageStats, error) {
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+	return uc.logRepo.GetUserTopAPIKeys(userID, limit)
 }

@@ -71,6 +71,52 @@ func (h *UsageHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 	resp.Paginated(w, total, page, size, logs)
 }
 
+func (h *UsageHandler) GetUserTokenTrend(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	granularity := r.URL.Query().Get("granularity")
+	if granularity != "hour" && granularity != "day" {
+		granularity = "day"
+	}
+
+	date := time.Now().UTC()
+	if value := r.URL.Query().Get("date"); value != "" {
+		parsed, err := time.Parse("2006-01-02", value)
+		if err != nil {
+			resp.Error(w, errcode.ErrInvalidTimeRange)
+			return
+		}
+		date = parsed
+	}
+
+	days, _ := strconv.Atoi(r.URL.Query().Get("days"))
+	if days < 1 || days > 90 {
+		days = 14
+	}
+
+	trend, err := h.usageUsecase.GetUserTokenTrend(userID, granularity, date, days)
+	if err != nil {
+		resp.Error(w, errcode.ErrInternal)
+		return
+	}
+	resp.Success(w, trend)
+}
+
+func (h *UsageHandler) GetUserTopAPIKeys(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	keys, err := h.usageUsecase.GetUserTopAPIKeys(userID, limit)
+	if err != nil {
+		resp.Error(w, errcode.ErrInternal)
+		return
+	}
+
+	resp.Success(w, keys)
+}
+
 func (h *UsageHandler) GetGlobalOverview(w http.ResponseWriter, r *http.Request) {
 	overview, err := h.usageUsecase.GetGlobalOverview()
 	if err != nil {

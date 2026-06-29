@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -38,7 +38,7 @@ func main() {
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			if !skipEnv {
 				if err := godotenv.Load(envFile); err != nil {
-					log.Printf("No env file loaded from %s, using system environment variables", envFile)
+					slog.Info("no env file loaded, using system environment variables", "env_file", envFile)
 				}
 			}
 
@@ -54,12 +54,13 @@ func main() {
 			if err := migration.Up(database.GetDB(), cfg); err != nil {
 				return fmt.Errorf("apply migrations: %w", err)
 			}
-			log.Println("Database migrations applied successfully")
+			slog.Info("database migrations applied successfully")
 			return nil
 		},
 	}
 
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
-		log.Fatal(err)
+		slog.Error("migration failed", "error", err)
+		os.Exit(1)
 	}
 }

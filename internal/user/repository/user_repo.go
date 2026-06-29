@@ -148,6 +148,55 @@ func (r *userRepository) IncrementBalance(id string, amount int64) error {
 	return err
 }
 
+func (r *userRepository) AdminAdjustBalance(id string, amount int64, txType int, description string) (int64, int64, error) {
+	session := r.db.NewSession()
+	defer session.Close()
+
+	if err := session.Begin(); err != nil {
+		return 0, 0, err
+	}
+
+	rows, err := session.QueryString("SELECT balance FROM users WHERE id = ? FOR UPDATE", id)
+	if err != nil {
+		_ = session.Rollback()
+		return 0, 0, err
+	}
+	if len(rows) == 0 {
+		_ = session.Rollback()
+		return 0, 0, fmt.Errorf("user not found")
+	}
+
+	balanceBefore := int64(0)
+	if _, err := fmt.Sscan(rows[0]["balance"], &balanceBefore); err != nil {
+		_ = session.Rollback()
+		return 0, 0, err
+	}
+	balanceAfter := balanceBefore + amount
+	if balanceAfter < 0 {
+		_ = session.Rollback()
+		return 0, 0, domain.ErrInsufficientBalance
+	}
+
+	if _, err := session.Exec("UPDATE users SET balance = ?, updated_at = ? WHERE id = ?", balanceAfter, time.Now(), id); err != nil {
+		_ = session.Rollback()
+		return 0, 0, err
+	}
+
+	now := time.Now()
+	if _, err := session.Exec(`
+		INSERT INTO transactions (id, user_id, type, amount, balance_after, reference_type, description, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, uuid.NewV7String(), id, txType, amount, balanceAfter, "admin_adjust", description, now); err != nil {
+		_ = session.Rollback()
+		return 0, 0, err
+	}
+
+	if err := session.Commit(); err != nil {
+		return 0, 0, err
+	}
+	return balanceBefore, balanceAfter, nil
+}
+
 func (r *userRepository) UpdateUsedQuota(id string, amount int64) error {
 	user := &domain.User{UsedQuota: amount, UpdatedAt: time.Now()}
 	_, err := r.db.ID(id).Cols("used_quota", "updated_at").Update(user)

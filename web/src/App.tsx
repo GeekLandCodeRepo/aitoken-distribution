@@ -15,6 +15,7 @@ import { ModelManagementPage } from './pages/ModelManagementPage'
 import { RedeemCodesPage } from './pages/RedeemCodesPage'
 import { LogsPage } from './pages/LogsPage'
 import { SiteSettingsPage } from './pages/SiteSettingsPage'
+import { BalanceTransactionsPage } from './pages/BalanceTransactionsPage'
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route path="models" element={<ModelPlazaPage />} />
           <Route path="usage" element={<UsagePage />} />
           <Route path="redeem" element={<RedeemPage />} />
+          <Route path="balance-transactions" element={<BalanceTransactionsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           
           {/* Admin routes */}
@@ -39,6 +41,7 @@ function App() {
           <Route path="admin/channels" element={<ChannelsPage />} />
           <Route path="admin/models" element={<ModelManagementPage />} />
           <Route path="admin/redeem-codes" element={<RedeemCodesPage />} />
+          <Route path="admin/balance-transactions" element={<BalanceTransactionsPage admin />} />
           <Route path="admin/logs" element={<LogsPage />} />
           <Route path="admin/settings" element={<SiteSettingsPage />} />
         </Route>

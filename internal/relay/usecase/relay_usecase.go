@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -548,7 +548,7 @@ func (uc *RelayUsecase) recordChannelStats(channelID string, success bool, quota
 func (uc *RelayUsecase) postConsumeAndRecord(ctx context.Context, channelID string, params billingUsecase.PostConsumeParams) {
 	actualCost, err := uc.billingUsecase.PostConsume(ctx, params)
 	if err != nil {
-		log.Printf("billing post consume failed: request_id=%s channel_id=%s user_id=%s err=%v", params.RequestID, channelID, params.UserID, err)
+		slog.Error("billing post consume failed", "request_id", params.RequestID, "channel_id", channelID, "user_id", params.UserID, "error", err)
 	}
 	uc.publishOrRecord(ctx, event.RequestCompletedEvent{
 		RequestID:        params.RequestID,
@@ -587,11 +587,11 @@ func (uc *RelayUsecase) publishOrRecord(ctx context.Context, evt event.RequestCo
 		if err == nil {
 			return
 		}
-		log.Printf("publish request completed event failed, fallback sync: request_id=%s err=%v", evt.RequestID, err)
+		slog.Error("publish request completed event failed, fallback sync", "request_id", evt.RequestID, "error", err)
 	}
 	if logRepo := uc.billingUsecase.RequestLogRepository(); logRepo != nil {
 		if err := logRepo.Create(evt.RequestLog()); err != nil {
-			log.Printf("fallback request log create failed: request_id=%s err=%v", evt.RequestID, err)
+			slog.Error("fallback request log create failed", "request_id", evt.RequestID, "error", err)
 		}
 	}
 	uc.recordChannelStats(evt.ChannelID, evt.ChannelSuccess, evt.ChannelQuota)

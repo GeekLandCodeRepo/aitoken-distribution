@@ -4,8 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 
 	"llm-gateway/internal/shared/crypto"
 	"llm-gateway/internal/shared/uuid"
@@ -16,10 +21,11 @@ import (
 
 type UserUsecase struct {
 	userRepo domain.UserRepository
+	redis    *redis.Client
 }
 
-func NewUserUsecase(userRepo domain.UserRepository) *UserUsecase {
-	return &UserUsecase{userRepo: userRepo}
+func NewUserUsecase(userRepo domain.UserRepository, redis *redis.Client) *UserUsecase {
+	return &UserUsecase{userRepo: userRepo, redis: redis}
 }
 
 type ListUsersRequest struct {
@@ -219,7 +225,7 @@ func (uc *UserUsecase) ResetPassword(ctx context.Context, id string) error {
 }
 
 func (uc *UserUsecase) TopUp(ctx context.Context, id string, req TopUpRequest) (int64, int64, error) {
-	if req.Amount <= 0 {
+	if req.Amount == 0 {
 		return 0, 0, errcode.ErrInvalidAmount
 	}
 
@@ -231,13 +237,29 @@ func (uc *UserUsecase) TopUp(ctx context.Context, id string, req TopUpRequest) (
 		return 0, 0, errcode.ErrUserNotFound
 	}
 
-	balanceBefore := user.Balance
-
-	if err := uc.userRepo.IncrementBalance(id, req.Amount); err != nil {
-		return 0, 0, errcode.ErrDatabase
+	txType := 4
+	defaultDescription := "Admin balance increase"
+	if req.Amount < 0 {
+		txType = 2
+		defaultDescription = "Admin balance decrease"
+	}
+	description := strings.TrimSpace(req.Description)
+	if description == "" {
+		description = defaultDescription
 	}
 
-	return balanceBefore, balanceBefore + req.Amount, nil
+	balanceBefore, balanceAfter, err := uc.userRepo.AdminAdjustBalance(id, req.Amount, txType, description)
+	if err != nil {
+		if errors.Is(err, domain.ErrInsufficientBalance) {
+			return 0, 0, errcode.ErrInsufficientBalance
+		}
+		return 0, 0, errcode.ErrDatabase
+	}
+	if uc.redis != nil {
+		_ = uc.redis.Del(ctx, fmt.Sprintf("user_balance:%s", id)).Err()
+	}
+
+	return balanceBefore, balanceAfter, nil
 }
 
 func (uc *UserUsecase) DeleteUser(ctx context.Context, id string) error {

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
-import { authApi, type UserInfo } from '@/api'
+import { authApi } from '@/api'
 import { useAuthStore } from '@/store/auth'
 
 export function Layout() {
-  const [user, setUser] = useState<UserInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const accessToken = useAuthStore((state) => state.accessToken)
+  const user = useAuthStore((state) => state.user)
+  const setUser = useAuthStore((state) => state.setUser)
   const clearTokens = useAuthStore((state) => state.clearTokens)
   const navigate = useNavigate()
 
@@ -23,7 +24,13 @@ export function Layout() {
       }
     }
 
-    setUser(null)
+    if (user) {
+      setLoading(false)
+      return () => {
+        active = false
+      }
+    }
+
     setLoading(true)
 
     const fetchUserInfo = async () => {
@@ -49,7 +56,7 @@ export function Layout() {
     return () => {
       active = false
     }
-  }, [accessToken, clearTokens, navigate])
+  }, [accessToken, user, setUser, clearTokens, navigate])
 
   if (loading) {
     return (

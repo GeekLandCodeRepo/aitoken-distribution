@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,17 +19,19 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+		slog.Info("no .env file found, using system environment variables")
 	}
 
 	cfg := config.Load()
 	if err := database.Init(cfg); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		slog.Error("failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 	defer database.GetDB().Close()
 
 	if err := redis.Init(cfg); err != nil {
-		log.Fatalf("Failed to initialize redis: %v", err)
+		slog.Error("failed to initialize redis", "error", err)
+		os.Exit(1)
 	}
 	defer redis.Close()
 
@@ -44,9 +46,10 @@ func main() {
 
 	consumer := event.NewConsumer(redis.GetClient(), database.GetDB(), consumerName)
 
-	log.Printf("Worker starting: consumer=%s stream=%s group=%s", consumerName, event.RequestCompletedStream, event.RequestCompletedGroup)
+	slog.Info("worker starting", "consumer", consumerName, "stream", event.RequestCompletedStream, "group", event.RequestCompletedGroup)
 	if err := consumer.Run(ctx); err != nil && err != context.Canceled {
-		log.Fatalf("Worker stopped with error: %v", err)
+		slog.Error("worker stopped with error", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Worker stopped")
+	slog.Info("worker stopped")
 }

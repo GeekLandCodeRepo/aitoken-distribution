@@ -49,6 +49,31 @@ func (r *transactionRepository) ListByUserID(userID string, page, size int, txTy
 	return transactions, total, nil
 }
 
+func (r *transactionRepository) ListAll(page, size int, userID string, userEmail string, txType *int) ([]*domain.TransactionItem, int64, error) {
+	var transactions []*domain.TransactionItem
+	query := r.db.Table("transactions").Alias("t").
+		Select("t.id, t.user_id, COALESCE(u.username, '') AS username, COALESCE(u.email, '') AS email, t.type, t.amount, t.balance_after, t.reference_type, t.reference_id, t.description, t.created_at").
+		Join("LEFT", []string{"users", "u"}, "u.id = t.user_id").
+		Limit(size, (page-1)*size)
+
+	if userID != "" {
+		query = query.Where("t.user_id = ?", userID)
+	}
+	if userEmail != "" {
+		query = query.Where("LOWER(u.email) = LOWER(?)", userEmail)
+	}
+	if txType != nil {
+		query = query.Where("t.type = ?", *txType)
+	}
+
+	total, err := query.Desc("t.created_at").FindAndCount(&transactions)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return transactions, total, nil
+}
+
 type requestLogRepository struct {
 	db *xorm.Engine
 }

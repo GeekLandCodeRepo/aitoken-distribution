@@ -16,6 +16,20 @@ type Transaction struct {
 	CreatedAt     time.Time `json:"created_at" xorm:"created"`
 }
 
+type TransactionItem struct {
+	ID            string    `json:"id" xorm:"'id'"`
+	UserID        string    `json:"user_id" xorm:"'user_id'"`
+	Username      string    `json:"username" xorm:"'username'"`
+	Email         string    `json:"email" xorm:"'email'"`
+	Type          int       `json:"type" xorm:"'type'"`
+	Amount        int64     `json:"amount" xorm:"'amount'"`
+	BalanceAfter  int64     `json:"balance_after" xorm:"'balance_after'"`
+	ReferenceType string    `json:"reference_type" xorm:"'reference_type'"`
+	ReferenceID   string    `json:"reference_id" xorm:"'reference_id'"`
+	Description   string    `json:"description" xorm:"'description'"`
+	CreatedAt     time.Time `json:"created_at" xorm:"'created_at'"`
+}
+
 func (Transaction) TableName() string {
 	return "transactions"
 }
@@ -24,6 +38,7 @@ type TransactionRepository interface {
 	Create(tx *Transaction) error
 	GetByID(id string) (*Transaction, error)
 	ListByUserID(userID string, page, size int, txType *int) ([]*Transaction, int64, error)
+	ListAll(page, size int, userID string, userEmail string, txType *int) ([]*TransactionItem, int64, error)
 }
 
 type RequestLog struct {

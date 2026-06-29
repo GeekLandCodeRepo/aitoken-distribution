@@ -50,6 +50,17 @@ export interface UserUsageStats {
   percentage: number
 }
 
+export interface APIKeyUsageStats {
+  key_id: string
+  key_name: string
+  key_prefix: string
+  key_suffix: string
+  requests: number
+  tokens: number
+  cost: number
+  percentage: number
+}
+
 export interface UsageStatsResponse {
   stats: UsageStat[]
   by_model: UsageByModel[]
@@ -114,6 +125,12 @@ export const usageApi = {
   
   logs: (params?: { page?: number; size?: number; model?: string; key?: string; start?: string; end?: string }) =>
     alovaInstance.Get<LogListResponse>('/usage/logs', { params }),
+
+  tokenTrend: (params?: { granularity?: 'hour' | 'day'; date?: string; days?: number }) =>
+    alovaInstance.Get<TokenTrendPoint[]>('/usage/token-trend', { params }),
+
+  topAPIKeys: (params?: { limit?: number }) =>
+    alovaInstance.Get<APIKeyUsageStats[]>('/usage/top-api-keys', { params }),
 
   adminLogs: (params?: { page?: number; size?: number; model?: string; key?: string; start?: string; end?: string }) =>
     alovaInstance.Get<LogListResponse>('/admin/usage/logs', { params }),

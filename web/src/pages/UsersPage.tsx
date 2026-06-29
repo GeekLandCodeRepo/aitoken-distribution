@@ -25,6 +25,13 @@ import {
 } from '@/components/ui/dialog'
 import { userApi, type User, type UserChannelOption } from '@/api'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function isValidEmail(value: string) {
+  return emailPattern.test(value.trim())
+}
 
 export function UsersPage() {
   const { t } = useTranslation()
@@ -34,6 +41,7 @@ export function UsersPage() {
   const [topUpOpen, setTopUpOpen] = useState(false)
   const [topUpUser, setTopUpUser] = useState<User | null>(null)
   const [topUpAmount, setTopUpAmount] = useState('')
+  const [topUpDirection, setTopUpDirection] = useState<'increase' | 'decrease'>('increase')
   const [createOpen, setCreateOpen] = useState(false)
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null)
   const [newUser, setNewUser] = useState({ email: '', username: '', password: '', role: 1, balance: '' })
@@ -62,25 +70,29 @@ export function UsersPage() {
   const openTopUpDialog = (user: User) => {
     setTopUpUser(user)
     setTopUpAmount('')
+    setTopUpDirection('increase')
     setTopUpOpen(true)
   }
 
   const handleTopUp = async () => {
     if (!topUpUser || !topUpAmount) return
 
-    const amount = parseFloat(topUpAmount)
-    if (!Number.isFinite(amount) || amount <= 0) return
+    const rawAmount = parseFloat(topUpAmount)
+    if (!Number.isFinite(rawAmount) || rawAmount <= 0) return
+
+    const amount = Math.floor(rawAmount * 1000000) * (topUpDirection === 'decrease' ? -1 : 1)
 
     try {
       await userApi.topUp(topUpUser.id, {
-        amount: Math.floor(amount * 1000000),
-        description: 'Admin top up',
+        amount,
+        description: topUpDirection === 'decrease' ? 'Admin balance decrease' : 'Admin balance increase',
       })
       toast.success(t('users.topUpSuccess'))
       setTopUpOpen(false)
       setTopUpUser(null)
       setTopUpAmount('')
-      fetchUsers()
+      setTopUpDirection('increase')
+      await fetchUsers()
     } catch (err: any) {
       toast.error(err.message || t('users.topUpFailed'))
     }
@@ -107,9 +119,15 @@ export function UsersPage() {
   }
 
   const handleCreateUser = async () => {
+    const email = newUser.email.trim()
+    if (!isValidEmail(email)) {
+      toast.error(t('users.invalidEmail'))
+      return
+    }
+
     try {
       await userApi.create({
-        email: newUser.email,
+        email,
         username: newUser.username,
         password: newUser.password,
         role: newUser.role,
@@ -288,16 +306,30 @@ export function UsersPage() {
               {topUpUser ? `${topUpUser.username} (${topUpUser.email})` : ''}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label>{t('users.topUpAmount')}</Label>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={topUpAmount}
-              onChange={(e) => setTopUpAmount(e.target.value)}
-              placeholder="10"
-            />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t('users.adjustDirection')}</Label>
+              <Select value={topUpDirection} onValueChange={(value) => setTopUpDirection(value as 'increase' | 'decrease')}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="increase">{t('users.increaseBalance')}</SelectItem>
+                  <SelectItem value="decrease">{t('users.decreaseBalance')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('users.topUpAmount')}</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={topUpAmount}
+                onChange={(e) => setTopUpAmount(e.target.value)}
+                placeholder="10"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTopUpOpen(false)}>{t('common.cancel')}</Button>
@@ -315,7 +347,15 @@ export function UsersPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>{t('users.email')}</Label>
-              <Input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
+              <Input
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                aria-invalid={newUser.email !== '' && !isValidEmail(newUser.email)}
+              />
+              {newUser.email !== '' && !isValidEmail(newUser.email) && (
+                <p className="text-xs text-destructive">{t('users.invalidEmail')}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>{t('users.username')}</Label>

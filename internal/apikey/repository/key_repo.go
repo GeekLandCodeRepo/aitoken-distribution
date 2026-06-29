@@ -52,8 +52,24 @@ func (r *apiKeyRepository) Update(key *domain.ApiKey) error {
 }
 
 func (r *apiKeyRepository) Delete(id string) error {
-	_, err := r.db.ID(id).Delete(&domain.ApiKey{})
-	return err
+	session := r.db.NewSession()
+	defer session.Close()
+
+	if err := session.Begin(); err != nil {
+		return err
+	}
+
+	if _, err := session.Exec("UPDATE request_logs SET api_key_id = NULL WHERE api_key_id = ?", id); err != nil {
+		_ = session.Rollback()
+		return err
+	}
+
+	if _, err := session.ID(id).Delete(&domain.ApiKey{}); err != nil {
+		_ = session.Rollback()
+		return err
+	}
+
+	return session.Commit()
 }
 
 func (r *apiKeyRepository) ListByUserID(userID string) ([]*domain.ApiKey, error) {
