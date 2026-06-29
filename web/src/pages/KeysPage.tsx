@@ -35,6 +35,8 @@ export function KeysPage() {
   const [createdKey, setCreatedKey] = useState<string | null>(null)
   const [editingKey, setEditingKey] = useState<ApiKey | null>(null)
   const [editForm, setEditForm] = useState<CreateKeyRequest>({ name: '' })
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ key: ApiKey; enabled: boolean } | null>(null)
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchKeys()
@@ -75,13 +77,27 @@ export function KeysPage() {
     }
   }
 
-  const handleStatusChange = async (id: string, enabled: boolean) => {
+  const requestStatusChange = (key: ApiKey, enabled: boolean) => {
+    if ((key.status === 1) === enabled) return
+    setPendingStatusChange({ key, enabled })
+  }
+
+  const confirmStatusChange = async () => {
+    if (!pendingStatusChange) return
+
+    const { key, enabled } = pendingStatusChange
+    setStatusUpdatingId(key.id)
     try {
-      const updated = await apiKeyApi.updateStatus(id, enabled)
-      setKeys((prev) => prev.map((key) => (key.id === id ? updated : key)))
-      fetchKeys()
-    } catch (err) {
+      await apiKeyApi.updateStatus(key.id, enabled)
+      setKeys((prev) => prev.map((item) => (
+        item.id === key.id ? { ...item, status: enabled ? 1 : 0 } : item
+      )))
+      setPendingStatusChange(null)
+    } catch (err: any) {
       console.error('Failed to update key status:', err)
+      alert(err.message || t('keys.updateFailed'))
+    } finally {
+      setStatusUpdatingId(null)
     }
   }
 
@@ -129,6 +145,14 @@ export function KeysPage() {
   const quotaPercent = (key: ApiKey) => {
     if (key.quota_limit <= 0) return 0
     return Math.min(100, Math.max(0, (key.used_quota / key.quota_limit) * 100))
+  }
+
+  const formatLastUsed = (value: string) => {
+    const date = new Date(value)
+    return {
+      date: date.toLocaleDateString(),
+      time: date.toLocaleTimeString(),
+    }
   }
 
   return (
@@ -251,11 +275,19 @@ export function KeysPage() {
                     <TableCell>
                       <Switch
                         checked={key.status === 1}
-                        onCheckedChange={(checked) => handleStatusChange(key.id, checked)}
+                        disabled={statusUpdatingId === key.id}
+                        onCheckedChange={(checked) => requestStatusChange(key, checked)}
                       />
                     </TableCell>
                     <TableCell>
-                      {key.last_used_at ? new Date(key.last_used_at).toLocaleString() : t('keys.never')}
+                      {key.last_used_at ? (
+                        <div className="space-y-0.5 text-sm leading-tight">
+                          <div>{formatLastUsed(key.last_used_at).date}</div>
+                          <div className="text-muted-foreground">{formatLastUsed(key.last_used_at).time}</div>
+                        </div>
+                      ) : (
+                        t('keys.never')
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
@@ -320,6 +352,33 @@ export function KeysPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingKey(null)}>{t('common.cancel')}</Button>
             <Button onClick={handleUpdate}>{t('common.save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!pendingStatusChange} onOpenChange={(open) => !open && setPendingStatusChange(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingStatusChange?.enabled ? t('keys.enableConfirmTitle') : t('keys.disableConfirmTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingStatusChange?.enabled
+                ? t('keys.enableConfirmDesc', { name: pendingStatusChange.key.name })
+                : t('keys.disableConfirmDesc', { name: pendingStatusChange?.key.name })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingStatusChange(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant={pendingStatusChange?.enabled ? 'default' : 'destructive'}
+              onClick={confirmStatusChange}
+              disabled={!!statusUpdatingId}
+            >
+              {pendingStatusChange?.enabled ? t('common.active') : t('common.disabled')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

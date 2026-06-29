@@ -146,7 +146,11 @@
     "rateLimitHeader": "Rate Limit",
     "createFailed": "Failed to create key",
     "updateFailed": "Failed to update key",
-    "deleteFailed": "Failed to delete key"
+    "deleteFailed": "Failed to delete key",
+    "enableConfirmTitle": "Enable API key?",
+    "enableConfirmDesc": "Enable “{{name}}”? This key can call APIs after it is enabled.",
+    "disableConfirmTitle": "Disable API key?",
+    "disableConfirmDesc": "Disable “{{name}}”? This key will no longer be able to call APIs."
   },
   "modelPlaza": {
     "title": "Model Plaza",

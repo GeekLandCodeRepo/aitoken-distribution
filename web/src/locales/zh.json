@@ -146,7 +146,11 @@
     "rateLimitHeader": "频率限制",
     "createFailed": "创建密钥失败",
     "updateFailed": "更新密钥失败",
-    "deleteFailed": "删除密钥失败"
+    "deleteFailed": "删除密钥失败",
+    "enableConfirmTitle": "启用 API 密钥？",
+    "enableConfirmDesc": "确认启用“{{name}}”？启用后此密钥可以继续调用接口。",
+    "disableConfirmTitle": "禁用 API 密钥？",
+    "disableConfirmDesc": "确认禁用“{{name}}”？禁用后此密钥将无法继续调用接口。"
   },
   "modelPlaza": {
     "title": "模型广场",

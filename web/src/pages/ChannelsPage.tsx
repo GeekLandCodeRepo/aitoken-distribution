@@ -334,7 +334,7 @@ export function ChannelsPage() {
                         checked={channel.status === 1}
                         onCheckedChange={(checked) => setPendingStatusChange({ channel, enabled: checked })}
                         aria-label={channel.status === 1 ? t('common.active') : t('common.disabled')}
-                        className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-amber-400"
+                        className="data-[state=checked]:bg-emerald-500"
                       />
                     </TableCell>
                     <TableCell>
