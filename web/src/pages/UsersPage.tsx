@@ -255,7 +255,7 @@ export function UsersPage() {
                           </span>
                           <span className="text-muted-foreground">{getQuotaPercent(user).toFixed(0)}%</span>
                         </div>
-                        <Progress value={getQuotaPercent(user)} />
+                        <Progress value={getQuotaPercent(user)} className="h-1.5" />
                         <div className="text-xs text-muted-foreground">
                           {t('users.availableQuota')}: {formatUSD(user.balance)}
                         </div>

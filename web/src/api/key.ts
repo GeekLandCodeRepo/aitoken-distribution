@@ -38,7 +38,10 @@ export const apiKeyApi = {
   
   update: (id: string, data: Partial<CreateKeyRequest>) =>
     alovaInstance.Put<ApiKey>(`/api-keys/${id}`, data),
-  
+
+  updateStatus: (id: string, enabled: boolean) =>
+    alovaInstance.Put<ApiKey>(`/api-keys/${id}/status`, { enabled }),
+
   delete: (id: string) =>
     alovaInstance.Delete(`/api-keys/${id}`),
   

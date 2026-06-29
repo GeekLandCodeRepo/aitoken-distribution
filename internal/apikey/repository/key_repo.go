@@ -51,6 +51,21 @@ func (r *apiKeyRepository) Update(key *domain.ApiKey) error {
 	return err
 }
 
+func (r *apiKeyRepository) UpdateStatus(id, userID string, status int) error {
+	result, err := r.db.Exec("UPDATE api_keys SET status = ? WHERE id = ? AND user_id = ?", status, id, userID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("api key not found")
+	}
+	return nil
+}
+
 func (r *apiKeyRepository) Delete(id string) error {
 	session := r.db.NewSession()
 	defer session.Close()
@@ -87,6 +102,7 @@ func (r *apiKeyRepository) UpdateUsedQuota(id string, amount int64) error {
 }
 
 func (r *apiKeyRepository) UpdateLastUsedAt(id string) error {
-	_, err := r.db.ID(id).Cols("last_used_at").Update(&domain.ApiKey{LastUsedAt: &time.Time{}})
+	now := time.Now()
+	_, err := r.db.ID(id).Cols("last_used_at").Update(&domain.ApiKey{LastUsedAt: &now})
 	return err
 }

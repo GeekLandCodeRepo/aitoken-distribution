@@ -31,6 +31,7 @@ type ApiKeyRepository interface {
 	GetByID(id string) (*ApiKey, error)
 	GetByHash(hash string) (*ApiKey, error)
 	Update(key *ApiKey) error
+	UpdateStatus(id, userID string, status int) error
 	Delete(id string) error
 	ListByUserID(userID string) ([]*ApiKey, error)
 	UpdateUsedQuota(id string, amount int64) error

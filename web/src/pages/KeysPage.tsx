@@ -10,10 +10,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
+import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,8 @@ export function KeysPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newKey, setNewKey] = useState<CreateKeyRequest>({ name: '' })
   const [createdKey, setCreatedKey] = useState<string | null>(null)
+  const [editingKey, setEditingKey] = useState<ApiKey | null>(null)
+  const [editForm, setEditForm] = useState<CreateKeyRequest>({ name: '' })
 
   useEffect(() => {
     fetchKeys()
@@ -72,12 +75,34 @@ export function KeysPage() {
     }
   }
 
-  const handleToggle = async (id: string) => {
+  const handleStatusChange = async (id: string, enabled: boolean) => {
     try {
-      await apiKeyApi.toggle(id)
+      const updated = await apiKeyApi.updateStatus(id, enabled)
+      setKeys((prev) => prev.map((key) => (key.id === id ? updated : key)))
       fetchKeys()
     } catch (err) {
-      console.error('Failed to toggle key:', err)
+      console.error('Failed to update key status:', err)
+    }
+  }
+
+  const openEditDialog = (key: ApiKey) => {
+    setEditingKey(key)
+    setEditForm({
+      name: key.name,
+      quota_limit: key.quota_limit,
+      rate_limit: key.rate_limit,
+    })
+  }
+
+  const handleUpdate = async () => {
+    if (!editingKey || !editForm.name) return
+    try {
+      await apiKeyApi.update(editingKey.id, editForm)
+      setEditingKey(null)
+      setEditForm({ name: '' })
+      fetchKeys()
+    } catch (err: any) {
+      alert(err.message || t('keys.updateFailed'))
     }
   }
 
@@ -91,6 +116,19 @@ export function KeysPage() {
       return `${key.key_prefix}......${key.key_suffix}`
     }
     return `${key.key_prefix}......`
+  }
+
+  const formatUSD = (value?: number) => `$${((value || 0) / 1000000).toFixed(6)}`
+
+  const parseUSDToUnits = (value: string) => {
+    const amount = parseFloat(value)
+    if (!Number.isFinite(amount) || amount < 0) return -1
+    return Math.floor(amount * 1000000)
+  }
+
+  const quotaPercent = (key: ApiKey) => {
+    if (key.quota_limit <= 0) return 0
+    return Math.min(100, Math.max(0, (key.used_quota / key.quota_limit) * 100))
   }
 
   return (
@@ -140,8 +178,9 @@ export function KeysPage() {
                   <Input
                     type="number"
                     placeholder="-1"
-                    value={newKey.quota_limit || ''}
-                    onChange={(e) => setNewKey({ ...newKey, quota_limit: parseInt(e.target.value) || -1 })}
+                    step="0.000001"
+                    value={newKey.quota_limit && newKey.quota_limit > 0 ? newKey.quota_limit / 1000000 : ''}
+                    onChange={(e) => setNewKey({ ...newKey, quota_limit: parseUSDToUnits(e.target.value) })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -176,8 +215,7 @@ export function KeysPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('common.name')}</TableHead>
-                  <TableHead>{t('keys.keyPrefix')}</TableHead>
+                  <TableHead>{t('keys.keyInfo')}</TableHead>
                   <TableHead>{t('keys.quota')}</TableHead>
                   <TableHead>{t('keys.rateLimitHeader')}</TableHead>
                   <TableHead>{t('common.status')}</TableHead>
@@ -188,18 +226,33 @@ export function KeysPage() {
               <TableBody>
                 {keys.map((key) => (
                   <TableRow key={key.id}>
-                    <TableCell className="font-medium">{key.name}</TableCell>
-                    <TableCell className="font-mono">{formatKeyDisplay(key)}</TableCell>
                     <TableCell>
-                      {key.quota_limit === -1 ? t('common.unlimited') : `$${(key.used_quota / 1000000).toFixed(2)} / ${(key.quota_limit / 1000000).toFixed(2)}`}
+                      <div className="space-y-0.5">
+                        <div className="font-medium">{key.name}</div>
+                        <div className="font-mono text-xs text-muted-foreground">{formatKeyDisplay(key)}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="min-w-[220px] space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="font-medium">
+                            {formatUSD(key.used_quota)} / {key.quota_limit === -1 ? t('common.unlimited') : formatUSD(key.quota_limit)}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {quotaPercent(key).toFixed(0)}%
+                          </span>
+                        </div>
+                        <Progress value={quotaPercent(key)} className="h-1.5" />
+                      </div>
                     </TableCell>
                     <TableCell>
                       {key.rate_limit === -1 ? t('common.unlimited') : `${key.rate_limit}/min`}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={key.status === 1 ? 'default' : 'destructive'}>
-                        {key.status === 1 ? t('common.active') : t('common.disabled')}
-                      </Badge>
+                      <Switch
+                        checked={key.status === 1}
+                        onCheckedChange={(checked) => handleStatusChange(key.id, checked)}
+                      />
                     </TableCell>
                     <TableCell>
                       {key.last_used_at ? new Date(key.last_used_at).toLocaleString() : t('keys.never')}
@@ -209,9 +262,9 @@ export function KeysPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleToggle(key.id)}
+                          onClick={() => openEditDialog(key)}
                         >
-                          {key.status === 1 ? t('common.disabled') : t('common.active')}
+                          {t('common.edit')}
                         </Button>
                         <Button
                           size="sm"
@@ -229,6 +282,47 @@ export function KeysPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!editingKey} onOpenChange={(open) => !open && setEditingKey(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('keys.editTitle')}</DialogTitle>
+            <DialogDescription>{t('keys.editDesc')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t('common.name')}</Label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('keys.quotaLimit')}</Label>
+              <Input
+                type="number"
+                step="0.000001"
+                placeholder="-1"
+                value={editForm.quota_limit && editForm.quota_limit > 0 ? editForm.quota_limit / 1000000 : ''}
+                onChange={(e) => setEditForm({ ...editForm, quota_limit: parseUSDToUnits(e.target.value) })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('keys.rateLimit')}</Label>
+              <Input
+                type="number"
+                placeholder="-1"
+                value={editForm.rate_limit && editForm.rate_limit > 0 ? editForm.rate_limit : ''}
+                onChange={(e) => setEditForm({ ...editForm, rate_limit: parseInt(e.target.value) || -1 })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingKey(null)}>{t('common.cancel')}</Button>
+            <Button onClick={handleUpdate}>{t('common.save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -153,7 +153,7 @@ func (uc *KeyUsecase) UpdateKey(id, userID string, req CreateKeyRequest) (*domai
 		key.AllowedIPs = string(data)
 	}
 
-	if err := uc.keyRepo.Update(key); err != nil {
+	if err := uc.keyRepo.UpdateStatus(key.ID, userID, key.Status); err != nil {
 		return nil, errcode.ErrDatabase
 	}
 	return key, nil
@@ -179,8 +179,24 @@ func (uc *KeyUsecase) ToggleKey(id, userID string) (*domain.ApiKey, error) {
 		key.Status = 1
 	}
 
-	if err := uc.keyRepo.Update(key); err != nil {
+	if err := uc.keyRepo.UpdateStatus(key.ID, userID, key.Status); err != nil {
 		return nil, errcode.ErrDatabase
+	}
+	return key, nil
+}
+
+func (uc *KeyUsecase) SetKeyStatus(id, userID string, enabled bool) (*domain.ApiKey, error) {
+	status := 0
+	if enabled {
+		status = 1
+	}
+	if err := uc.keyRepo.UpdateStatus(id, userID, status); err != nil {
+		return nil, errcode.ErrDatabase
+	}
+
+	key, err := uc.GetKey(id, userID)
+	if err != nil {
+		return nil, err
 	}
 	return key, nil
 }

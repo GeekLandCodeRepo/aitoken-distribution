@@ -128,7 +128,7 @@ export function UsagePage() {
                 </defs>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} width={42} />
+                <YAxis tickLine={false} axisLine={false} tickMargin={8} width={52} tickFormatter={(value) => formatCompactNumber(Number(value))} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Area type="monotone" dataKey="tokens" stroke="var(--color-tokens)" fill="url(#tokensFill)" strokeWidth={2} />
               </AreaChart>
@@ -307,6 +307,14 @@ function formatMoney(value: number, digits = 2) {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat().format(value || 0)
+}
+
+function formatCompactNumber(value: number) {
+  const abs = Math.abs(value)
+  if (abs >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+  if (abs >= 1_000) return `${(value / 1_000).toFixed(1)}K`
+  return String(value || 0)
 }
 
 function formatKey(log: RequestLog) {

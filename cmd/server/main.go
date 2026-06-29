@@ -165,6 +165,7 @@ func main() {
 				r.Get("/", apikey_handler.ListKeys)
 				r.Post("/", apikey_handler.CreateKey)
 				r.Put("/{id}", apikey_handler.UpdateKey)
+				r.Put("/{id}/status", apikey_handler.SetKeyStatus)
 				r.Post("/{id}/toggle", apikey_handler.ToggleKey)
 				r.Delete("/{id}", apikey_handler.DeleteKey)
 			})

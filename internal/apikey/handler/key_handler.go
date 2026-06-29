@@ -130,3 +130,33 @@ func (h *KeyHandler) ToggleKey(w http.ResponseWriter, r *http.Request) {
 
 	resp.Success(w, key)
 }
+
+func (h *KeyHandler) SetKeyStatus(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		resp.Error(w, errcode.ErrInvalidUserID)
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		resp.Error(w, errcode.ErrInvalidBody)
+		return
+	}
+
+	key, err := h.keyUsecase.SetKeyStatus(id, userID, req.Enabled)
+	if err != nil {
+		if appErr, ok := err.(*errcode.AppError); ok {
+			resp.Error(w, appErr)
+		} else {
+			resp.Error(w, errcode.ErrInternal)
+		}
+		return
+	}
+
+	resp.Success(w, key)
+}

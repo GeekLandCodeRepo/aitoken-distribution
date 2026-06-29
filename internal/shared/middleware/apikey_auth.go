@@ -90,6 +90,11 @@ func APIKeyAuth(apiKeyRepo apikeyDomain.ApiKeyRepository, rdb *redis.Client) fun
 			ctx = context.WithValue(ctx, "key_id", keyInfo.ID)
 			ctx = context.WithValue(ctx, "key_models", keyInfo.AllowedModels)
 
+			// best-effort update, avoid blocking relay requests
+			go func(keyID string) {
+				_ = apiKeyRepo.UpdateLastUsedAt(keyID)
+			}(keyInfo.ID)
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
