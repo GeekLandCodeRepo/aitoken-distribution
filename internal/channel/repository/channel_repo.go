@@ -136,6 +136,22 @@ func (r *channelRepository) Update(channel *domain.Channel) error {
 	return err
 }
 
+func (r *channelRepository) UpdateStatus(id string, status int) error {
+	result, err := r.db.Exec("UPDATE channels SET status = ?, updated_at = ? WHERE id = ?", status, time.Now(), id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("channel not found")
+	}
+	cache.DeletePattern(context.Background(), "channel_candidates:*")
+	return nil
+}
+
 func (r *channelRepository) Delete(id string) error {
 	_, err := r.db.ID(id).Delete(&domain.Channel{})
 	if err == nil {

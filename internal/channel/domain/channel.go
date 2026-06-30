@@ -10,7 +10,7 @@ type Channel struct {
 	Type         int       `json:"type" xorm:"smallint notnull"`
 	BaseURL      string    `json:"base_url" xorm:"'base_url' varchar(512) notnull"`
 	APIKeyEnc    string    `json:"-" xorm:"'api_key_enc' text notnull"`
-	Status       int       `json:"status" xorm:"smallint default(1)"`
+	Status       int       `json:"status" xorm:"smallint default(0)"`
 	Priority     int       `json:"priority" xorm:"int default(0)"`
 	Weight       int       `json:"weight" xorm:"int default(1)"`
 	Balance      float64   `json:"balance" xorm:"decimal(12,4)"`
@@ -33,6 +33,7 @@ type ChannelRepository interface {
 	Create(channel *Channel) error
 	GetByID(id string) (*Channel, error)
 	Update(channel *Channel) error
+	UpdateStatus(id string, status int) error
 	Delete(id string) error
 	List(page, size int, status, channelType *int) ([]*Channel, int64, error)
 	ListActive() ([]*Channel, error)

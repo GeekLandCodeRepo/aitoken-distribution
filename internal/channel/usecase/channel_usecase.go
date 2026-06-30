@@ -108,7 +108,7 @@ func (uc *ChannelUsecase) CreateChannel(req CreateChannelRequest) (*domain.Chann
 		Type:         req.Type,
 		BaseURL:      req.BaseURL,
 		APIKeyEnc:    encKey,
-		Status:       1,
+		Status:       0,
 		Priority:     req.Priority,
 		Weight:       req.Weight,
 		Models:       string(modelsJSON),
@@ -325,19 +325,18 @@ func (uc *ChannelUsecase) SetChannelStatus(id string, enabled bool) (*domain.Cha
 		return nil, err
 	}
 
+	status := 0
 	if enabled {
-		channel.Status = 1
-	} else {
-		channel.Status = 0
+		status = 1
 	}
-	channel.UpdatedAt = time.Now()
-
-	if err := uc.channelRepo.Update(channel); err != nil {
+	if err := uc.channelRepo.UpdateStatus(channel.ID, status); err != nil {
 		return nil, errcode.ErrDatabase
 	}
 	if err := uc.modelRepo.UpdateEnabledByChannel(channel.ID, enabled); err != nil {
 		return nil, errcode.ErrDatabase
 	}
+	channel.Status = status
+	channel.UpdatedAt = time.Now()
 	return channel, nil
 }
 
