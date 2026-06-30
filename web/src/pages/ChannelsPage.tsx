@@ -118,7 +118,6 @@ export function ChannelsPage() {
       }
       setDialogOpen(false)
       resetForm()
-      await fetchChannels()
     } catch (err: any) {
       alert(err.message || t('channels.addFailed'))
     }
@@ -149,9 +148,10 @@ export function ChannelsPage() {
     if (!pendingStatusChange) return
     const { channel, enabled } = pendingStatusChange
     try {
-      const updated = await channelApi.updateStatus(channel.id, enabled)
-      setChannels((items) => items.map((item) => item.id === channel.id ? updated : item))
-      await fetchChannels()
+      await channelApi.updateStatus(channel.id, enabled)
+      setChannels((items) => items.map((item) => (
+        item.id === channel.id ? { ...item, status: enabled ? 1 : 0 } : item
+      )))
     } catch (err) {
       console.error('Failed to update channel status:', err)
     } finally {
