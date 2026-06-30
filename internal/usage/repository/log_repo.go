@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -251,16 +250,26 @@ func (r *requestLogRepository) GetUserTokenTrend(userID string, granularity stri
 }
 
 func (r *requestLogRepository) getHourlyTokenTrend(userID string, date time.Time) ([]*domain.TokenTrendPoint, error) {
-	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
-	end := start.Add(24 * time.Hour)
-	dateLabel := start.Format("2006-01-02")
+	_ = date
+	now := time.Now().UTC().Truncate(time.Hour)
+	start := now.Add(-23 * time.Hour)
+	end := now.Add(time.Hour)
 
-	points := make([]*domain.TokenTrendPoint, 24)
-	byHour := make(map[int]*domain.TokenTrendPoint, 24)
-	for hour := 0; hour < 24; hour++ {
-		point := &domain.TokenTrendPoint{Label: fmt.Sprintf("%02d:00", hour), Date: dateLabel, Hour: hour}
-		points[hour] = point
-		byHour[hour] = point
+	points := make([]*domain.TokenTrendPoint, 0, 24)
+	byBucket := make(map[string]*domain.TokenTrendPoint, 24)
+	for bucket := start; !bucket.After(now); bucket = bucket.Add(time.Hour) {
+		bucketKey := bucket.Format("2006-01-02 15:04")
+		label := bucket.Format("15:04")
+		if bucket.Format("2006-01-02") != now.Format("2006-01-02") {
+			label = bucket.Format("01-02 15:04")
+		}
+		point := &domain.TokenTrendPoint{
+			Label: label,
+			Date:  bucket.Format("2006-01-02"),
+			Hour:  bucket.Hour(),
+		}
+		points = append(points, point)
+		byBucket[bucketKey] = point
 	}
 
 	where := "created_at >= ? AND created_at < ?"
@@ -270,9 +279,19 @@ func (r *requestLogRepository) getHourlyTokenTrend(userID string, date time.Time
 		args = append(args, userID)
 	}
 
-	rows := make([]*domain.TokenTrendPoint, 0)
+	type hourlyTokenTrendRow struct {
+		Bucket           string `xorm:"bucket"`
+		Requests         int64  `xorm:"requests"`
+		Tokens           int64  `xorm:"tokens"`
+		PromptTokens     int64  `xorm:"prompt_tokens"`
+		CompletionTokens int64  `xorm:"completion_tokens"`
+		ReasoningTokens  int64  `xorm:"reasoning_tokens"`
+		CacheTokens      int64  `xorm:"cache_tokens"`
+		Cost             int64  `xorm:"cost"`
+	}
+	rows := make([]*hourlyTokenTrendRow, 0)
 	query := `
-		SELECT EXTRACT(HOUR FROM created_at)::int AS hour,
+		SELECT to_char(date_trunc('hour', created_at), 'YYYY-MM-DD HH24:MI') AS bucket,
 		       COUNT(*) AS requests,
 		       COALESCE(SUM(total_tokens), 0) AS tokens,
 		       COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
@@ -282,14 +301,14 @@ func (r *requestLogRepository) getHourlyTokenTrend(userID string, date time.Time
 		       COALESCE(SUM(cost), 0) AS cost
 		FROM request_logs
 		WHERE ` + where + `
-		GROUP BY EXTRACT(HOUR FROM created_at)::int
-		ORDER BY hour ASC
+		GROUP BY date_trunc('hour', created_at)
+		ORDER BY date_trunc('hour', created_at) ASC
 	`
 	if err := r.db.SQL(query, args...).Find(&rows); err != nil {
 		return nil, err
 	}
 	for _, row := range rows {
-		if point := byHour[row.Hour]; point != nil {
+		if point := byBucket[row.Bucket]; point != nil {
 			point.Requests = row.Requests
 			point.Tokens = row.Tokens
 			point.PromptTokens = row.PromptTokens
