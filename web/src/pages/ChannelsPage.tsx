@@ -75,6 +75,7 @@ export function ChannelsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null)
   const [pendingStatusChange, setPendingStatusChange] = useState<{ channel: Channel; enabled: boolean } | null>(null)
+  const [pendingDeleteChannel, setPendingDeleteChannel] = useState<Channel | null>(null)
   const [newChannel, setNewChannel] = useState<CreateChannelRequest>({
     name: '',
     type: 1,
@@ -123,13 +124,12 @@ export function ChannelsPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(t('channels.deleteConfirm'))) return
-
+  const confirmDelete = async () => {
+    if (!pendingDeleteChannel) return
     try {
-      await channelApi.delete(id)
-      setChannels((items) => items.filter((item) => item.id !== id))
-      await fetchChannels()
+      await channelApi.delete(pendingDeleteChannel.id)
+      setChannels((items) => items.filter((item) => item.id !== pendingDeleteChannel.id))
+      setPendingDeleteChannel(null)
     } catch (err: any) {
       alert(err.message || t('channels.deleteFailed'))
     }
@@ -344,7 +344,7 @@ export function ChannelsPage() {
                         <Button size="sm" variant="outline" onClick={() => handleEdit(channel)}>
                           {t('common.edit')}
                         </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDelete(channel.id)}>
+                        <Button size="sm" variant="destructive" onClick={() => setPendingDeleteChannel(channel)}>
                           {t('common.delete')}
                         </Button>
                       </div>
@@ -371,6 +371,21 @@ export function ChannelsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingStatusChange(null)}>{t('common.cancel')}</Button>
             <Button onClick={confirmStatusChange}>{t('common.confirm')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!pendingDeleteChannel} onOpenChange={(open) => !open && setPendingDeleteChannel(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('channels.deleteTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('channels.deleteConfirm', { name: pendingDeleteChannel?.name })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDeleteChannel(null)}>{t('common.cancel')}</Button>
+            <Button variant="destructive" onClick={confirmDelete}>{t('common.delete')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

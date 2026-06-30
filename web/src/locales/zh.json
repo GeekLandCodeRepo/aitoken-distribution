@@ -357,7 +357,8 @@
     "enableConfirm": "确定要启用此渠道吗？该渠道下的所有模型也会启用。",
     "disableTitle": "禁用渠道",
     "disableConfirm": "确定要禁用此渠道吗？该渠道下的所有模型也会禁用。",
-    "deleteConfirm": "确定要删除此渠道吗？",
+    "deleteTitle": "删除渠道",
+    "deleteConfirm": "确定要删除“{{name}}”吗？该渠道下的模型也会被删除。",
     "addFailed": "创建渠道失败",
     "deleteFailed": "删除渠道失败"
   },

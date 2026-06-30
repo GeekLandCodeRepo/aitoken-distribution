@@ -357,7 +357,8 @@
     "enableConfirm": "Enable this channel? All models under this channel will also be enabled.",
     "disableTitle": "Disable Channel",
     "disableConfirm": "Disable this channel? All models under this channel will also be disabled.",
-    "deleteConfirm": "Are you sure you want to delete this channel?",
+    "deleteTitle": "Delete Channel",
+    "deleteConfirm": "Delete “{{name}}”? Models under this channel will also be deleted.",
     "addFailed": "Failed to create channel",
     "deleteFailed": "Failed to delete channel"
   },
