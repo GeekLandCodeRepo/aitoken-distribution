@@ -155,7 +155,7 @@ func applySchemaComments(db *xorm.Engine) error {
 		"channels": {
 			"id":            "渠道ID",
 			"name":          "渠道名称",
-			"type":          "渠道类型：1 OpenAI，2 Claude，3 Gemini，4 DeepSeek",
+			"type":          "渠道类型：1 OpenAI，2 Claude，3 Gemini，4 DeepSeek，5 Xiaomi",
 			"base_url":      "上游基础地址",
 			"api_key_enc":   "加密后的上游API Key",
 			"status":        "状态：1启用，0禁用",

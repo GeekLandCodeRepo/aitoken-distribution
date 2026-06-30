@@ -88,7 +88,7 @@ type Adaptor interface {
 // IsOpenAICompatible reports whether the provider natively speaks OpenAI chat completions.
 func IsOpenAICompatible(ad Adaptor) bool {
 	name := ad.GetName()
-	return name == "openai" || name == "deepseek"
+	return name == "openai" || name == "deepseek" || name == "xiaomi"
 }
 
 // OpenAIAdaptor is a pass-through adaptor for OpenAI-compatible providers.
@@ -327,6 +327,12 @@ type DeepSeekAdaptor struct{ OpenAIAdaptor }
 func NewDeepSeekAdaptor() *DeepSeekAdaptor { return &DeepSeekAdaptor{} }
 func (a *DeepSeekAdaptor) GetName() string { return "deepseek" }
 
+// XiaomiAdaptor is OpenAI-compatible.
+type XiaomiAdaptor struct{ OpenAIAdaptor }
+
+func NewXiaomiAdaptor() *XiaomiAdaptor   { return &XiaomiAdaptor{} }
+func (a *XiaomiAdaptor) GetName() string { return "xiaomi" }
+
 // GetAdaptor returns an adaptor by channel type.
 func GetAdaptor(channelType int) (Adaptor, error) {
 	switch channelType {
@@ -338,6 +344,8 @@ func GetAdaptor(channelType int) (Adaptor, error) {
 		return NewGeminiAdaptor(), nil
 	case 4:
 		return NewDeepSeekAdaptor(), nil
+	case 5:
+		return NewXiaomiAdaptor(), nil
 	default:
 		return nil, fmt.Errorf("unsupported channel type: %d", channelType)
 	}

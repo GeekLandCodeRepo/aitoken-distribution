@@ -38,6 +38,7 @@ const CHANNEL_TYPES = [
   { value: '2', label: 'Claude' },
   { value: '3', label: 'Gemini' },
   { value: '4', label: 'DeepSeek' },
+  { value: '5', label: 'Xiaomi' },
 ]
 
 const CHANNEL_TYPE_NAMES = CHANNEL_TYPES.reduce<Record<number, string>>((acc, item) => {

@@ -10,6 +10,7 @@ const channelTypeNames: Record<number, string> = {
   2: 'Claude',
   3: 'Gemini',
   4: 'DeepSeek',
+  5: 'Xiaomi',
 }
 
 export function ModelPlazaPage() {
