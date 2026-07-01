@@ -38,24 +38,24 @@ func (uc *UsageUsecase) GetDailyStats(date time.Time) (*domain.UsageStats, error
 	return uc.logRepo.GetDailyStats(date)
 }
 
-func (uc *UsageUsecase) GetTokenTrend(granularity string, date time.Time, days int) ([]*domain.TokenTrendPoint, error) {
+func (uc *UsageUsecase) GetTokenTrend(granularity string, date time.Time, days int, loc *time.Location) ([]*domain.TokenTrendPoint, error) {
 	if granularity != "hour" && granularity != "day" {
 		granularity = "day"
 	}
 	if granularity == "day" && (days < 1 || days > 90) {
 		days = 14
 	}
-	return uc.logRepo.GetTokenTrend(granularity, date, days)
+	return uc.logRepo.GetTokenTrend(granularity, date, days, loc)
 }
 
-func (uc *UsageUsecase) GetUserTokenTrend(userID string, granularity string, date time.Time, days int) ([]*domain.TokenTrendPoint, error) {
+func (uc *UsageUsecase) GetUserTokenTrend(userID string, granularity string, date time.Time, days int, loc *time.Location) ([]*domain.TokenTrendPoint, error) {
 	if granularity != "hour" && granularity != "day" {
 		granularity = "day"
 	}
 	if granularity == "day" && (days < 1 || days > 90) {
 		days = 14
 	}
-	return uc.logRepo.GetUserTokenTrend(userID, granularity, date, days)
+	return uc.logRepo.GetUserTokenTrend(userID, granularity, date, days, loc)
 }
 
 func (uc *UsageUsecase) GetTopModels(limit int) ([]*domain.ModelUsageStats, error) {

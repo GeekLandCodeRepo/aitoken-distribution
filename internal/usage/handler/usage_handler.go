@@ -19,6 +19,14 @@ func NewUsageHandler(usageUsecase *usecase.UsageUsecase) *UsageHandler {
 	return &UsageHandler{usageUsecase: usageUsecase}
 }
 
+func parseTimezone(r *http.Request) (*time.Location, error) {
+	value := r.URL.Query().Get("timezone")
+	if value == "" {
+		return time.Local, nil
+	}
+	return time.LoadLocation(value)
+}
+
 func (h *UsageHandler) GetOverview(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 
@@ -92,8 +100,13 @@ func (h *UsageHandler) GetUserTokenTrend(w http.ResponseWriter, r *http.Request)
 	if days < 1 || days > 90 {
 		days = 14
 	}
+	loc, err := parseTimezone(r)
+	if err != nil {
+		resp.Error(w, errcode.ErrInvalidTimeRange)
+		return
+	}
 
-	trend, err := h.usageUsecase.GetUserTokenTrend(userID, granularity, date, days)
+	trend, err := h.usageUsecase.GetUserTokenTrend(userID, granularity, date, days, loc)
 	if err != nil {
 		resp.Error(w, errcode.ErrInternal)
 		return
@@ -204,8 +217,13 @@ func (h *UsageHandler) GetTokenTrend(w http.ResponseWriter, r *http.Request) {
 	if days < 1 || days > 90 {
 		days = 14
 	}
+	loc, err := parseTimezone(r)
+	if err != nil {
+		resp.Error(w, errcode.ErrInvalidTimeRange)
+		return
+	}
 
-	trend, err := h.usageUsecase.GetTokenTrend(granularity, date, days)
+	trend, err := h.usageUsecase.GetTokenTrend(granularity, date, days, loc)
 	if err != nil {
 		resp.Error(w, errcode.ErrInternal)
 		return

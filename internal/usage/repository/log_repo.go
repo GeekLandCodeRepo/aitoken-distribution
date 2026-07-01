@@ -235,23 +235,26 @@ func (r *requestLogRepository) GetDailyStats(date time.Time) (*domain.UsageStats
 	return stats, err
 }
 
-func (r *requestLogRepository) GetTokenTrend(granularity string, date time.Time, days int) ([]*domain.TokenTrendPoint, error) {
+func (r *requestLogRepository) GetTokenTrend(granularity string, date time.Time, days int, loc *time.Location) ([]*domain.TokenTrendPoint, error) {
 	if granularity == "hour" {
-		return r.getHourlyTokenTrend("", date)
+		return r.getHourlyTokenTrend("", date, loc)
 	}
-	return r.getDailyTokenTrend("", days)
+	return r.getDailyTokenTrend("", days, loc)
 }
 
-func (r *requestLogRepository) GetUserTokenTrend(userID string, granularity string, date time.Time, days int) ([]*domain.TokenTrendPoint, error) {
+func (r *requestLogRepository) GetUserTokenTrend(userID string, granularity string, date time.Time, days int, loc *time.Location) ([]*domain.TokenTrendPoint, error) {
 	if granularity == "hour" {
-		return r.getHourlyTokenTrend(userID, date)
+		return r.getHourlyTokenTrend(userID, date, loc)
 	}
-	return r.getDailyTokenTrend(userID, days)
+	return r.getDailyTokenTrend(userID, days, loc)
 }
 
-func (r *requestLogRepository) getHourlyTokenTrend(userID string, date time.Time) ([]*domain.TokenTrendPoint, error) {
+func (r *requestLogRepository) getHourlyTokenTrend(userID string, date time.Time, loc *time.Location) ([]*domain.TokenTrendPoint, error) {
 	_ = date
-	now := time.Now().UTC().Truncate(time.Hour)
+	if loc == nil {
+		loc = time.Local
+	}
+	now := time.Now().In(loc).Truncate(time.Hour)
 	start := now.Add(-23 * time.Hour)
 	end := now.Add(time.Hour)
 
@@ -321,11 +324,14 @@ func (r *requestLogRepository) getHourlyTokenTrend(userID string, date time.Time
 	return points, nil
 }
 
-func (r *requestLogRepository) getDailyTokenTrend(userID string, days int) ([]*domain.TokenTrendPoint, error) {
+func (r *requestLogRepository) getDailyTokenTrend(userID string, days int, loc *time.Location) ([]*domain.TokenTrendPoint, error) {
 	if days < 1 || days > 90 {
 		days = 14
 	}
-	start := time.Now().UTC().AddDate(0, 0, -days+1).Truncate(24 * time.Hour)
+	if loc == nil {
+		loc = time.Local
+	}
+	start := time.Now().In(loc).AddDate(0, 0, -days+1).Truncate(24 * time.Hour)
 	end := start.AddDate(0, 0, days)
 
 	points := make([]*domain.TokenTrendPoint, 0, days)
